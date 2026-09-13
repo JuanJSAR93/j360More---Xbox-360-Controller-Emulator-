@@ -242,8 +242,6 @@ class J360MoreApp:
             self.btn_devices.config(text=self.t("btn_devices"))
         if hasattr(self, "btn_settings"):
             self.btn_settings.config(text=self.t("btn_settings"))
-        if hasattr(self, "btn_lang"):
-            self.btn_lang.config(text=self.t("btn_language"))
         if hasattr(self, "btn_joy_cpl"):
             self.btn_joy_cpl.config(text=self.t("btn_joy_cpl"))
         if hasattr(self, "btn_save"):
@@ -394,9 +392,6 @@ class J360MoreApp:
 
         self.btn_settings = ttk.Button(header_frame, text=self.t("btn_settings"), command=self._open_settings_dialog)
         self.btn_settings.pack(side=tk.LEFT, padx=4)
-
-        self.btn_lang = ttk.Button(header_frame, text=self.t("btn_language"), command=self._toggle_language)
-        self.btn_lang.pack(side=tk.LEFT, padx=4)
 
         status_container = ttk.Frame(header_frame)
         status_container.pack(side=tk.RIGHT)
@@ -1299,10 +1294,8 @@ class J360MoreApp:
         # 1. ViGEmBus es obligatorio
         if not self.driver_manager.is_vigem_installed():
             messagebox.showerror(
-                "ViGEmBus no detectado",
-                "⚠️ No se encontró el controlador ViGEmBus instalado en el sistema.\n\n"
-                "ViGEmBus es indispensable para poder crear los mandos virtuales de Xbox 360.\n"
-                "Por favor, instala ViGEmBus Driver para habilitar la emulación."
+                self.t("vigem_missing_title"),
+                self.t("vigem_missing_msg")
             )
 
         # 2. HidHide es opcional con aviso leve y checkbox 'No volver a preguntar'
@@ -1313,7 +1306,7 @@ class J360MoreApp:
     def _show_hidhide_warning_dialog(self):
         """Ventana modal informativa leve sobre la ausencia de HidHide con opción de no volver a mostrar."""
         dlg = tk.Toplevel(self.root)
-        dlg.title("Información - HidHide Opcional")
+        dlg.title(self.t("hidhide_warn_title"))
         dlg.geometry("450x240")
         dlg.resizable(False, False)
         dlg.transient(self.root)
@@ -1328,22 +1321,15 @@ class J360MoreApp:
 
         ttk.Label(
             frame,
-            text="ℹ️ HidHide no detectado (Opcional)",
+            text=self.t("hidhide_warn_header"),
             font=("Segoe UI", 10, "bold"),
             foreground="#d97706"
         ).pack(anchor="w", pady=(0, 6))
 
-        msg = (
-            "No se encontró el controlador Nefarius HidHide en las rutas habituales.\n\n"
-            "• La emulación de controles virtuales funcionará con normalidad.\n"
-            "• La opción para ocultar mandos físicos (evitar doble entrada en juegos) "
-            "estará inactiva hasta instalarlo o indicar su ruta.\n\n"
-            "Puedes configurar la ruta manualmente desde el menú '⚙ Configuración...'."
-        )
-        ttk.Label(frame, text=msg, wraplength=410, font=("Segoe UI", 8)).pack(anchor="w", pady=(0, 10))
+        ttk.Label(frame, text=self.t("hidhide_warn_body"), wraplength=410, font=("Segoe UI", 8)).pack(anchor="w", pady=(0, 10))
 
         dont_ask_var = tk.BooleanVar(value=False)
-        chk_dont_ask = ttk.Checkbutton(frame, text="No volver a mostrar este aviso", variable=dont_ask_var)
+        chk_dont_ask = ttk.Checkbutton(frame, text=self.t("hidhide_warn_dont_ask"), variable=dont_ask_var)
         chk_dont_ask.pack(anchor="w", pady=(0, 10))
 
         def on_accept():
@@ -1354,7 +1340,7 @@ class J360MoreApp:
 
         btn_box = ttk.Frame(frame)
         btn_box.pack(fill=tk.X, side=tk.BOTTOM)
-        ttk.Button(btn_box, text="Entendido", command=on_accept).pack(side=tk.RIGHT, padx=4)
+        ttk.Button(btn_box, text=self.t("hidhide_warn_btn"), command=on_accept).pack(side=tk.RIGHT, padx=4)
 
     def _open_settings_dialog(self):
         """Ventana modal de configuración con Idioma, Slider (1 a 12 mandos) y ruta de HidHide."""
@@ -1390,32 +1376,35 @@ class J360MoreApp:
         current_val = self.config.get("max_controllers", 8)
         val_var = tk.IntVar(value=current_val)
 
-        val_display = ttk.Label(box_mandos, text=f"{current_val} Mandos", font=("Segoe UI", 10, "bold"), foreground="#0066cc")
+        def get_ctrl_label(cnt):
+            return self.t("set_ctrl_count_1") if cnt == 1 else self.t("set_ctrl_count", count=cnt)
+
+        val_display = ttk.Label(box_mandos, text=get_ctrl_label(current_val), font=("Segoe UI", 10, "bold"), foreground="#0066cc")
         val_display.pack(anchor="center", pady=(0, 2))
 
         def on_slider(v):
             ival = int(float(v))
             val_var.set(ival)
-            val_display.config(text=f"{ival} Mandos")
+            val_display.config(text=get_ctrl_label(ival))
 
         slider = ttk.Scale(box_mandos, from_=1, to=12, orient=tk.HORIZONTAL, value=current_val, command=on_slider)
         slider.pack(fill=tk.X, pady=2)
 
         ticks_frame = ttk.Frame(box_mandos)
         ticks_frame.pack(fill=tk.X)
-        ttk.Label(ticks_frame, text="1 Mando", font=("Segoe UI", 8)).pack(side=tk.LEFT)
-        ttk.Label(ticks_frame, text="6", font=("Segoe UI", 8)).pack(side=tk.LEFT, expand=True)
-        ttk.Label(ticks_frame, text="12 Mandos", font=("Segoe UI", 8)).pack(side=tk.RIGHT)
+        ttk.Label(ticks_frame, text=self.t("set_1_controller"), font=("Segoe UI", 8)).pack(side=tk.LEFT)
+        ttk.Label(ticks_frame, text=self.t("set_6_controllers"), font=("Segoe UI", 8)).pack(side=tk.LEFT, expand=True)
+        ttk.Label(ticks_frame, text=self.t("set_12_controllers"), font=("Segoe UI", 8)).pack(side=tk.RIGHT)
 
         # SECCION 3: Integración con HidHide (Opcional)
         box_hidhide = ttk.LabelFrame(frame, text=self.t("set_hidhide_title"), padding=10)
         box_hidhide.pack(fill=tk.X, pady=(0, 8))
 
         is_installed = self.driver_manager.is_hidhide_installed()
-        status_text = "✔ Instalado y Operativo" if is_installed else "⚠️ No Detectado / No Configurado"
+        status_text = self.t("set_status_installed") if is_installed else self.t("set_status_missing")
         status_color = "#16a34a" if is_installed else "#d97706"
 
-        status_lbl = ttk.Label(box_hidhide, text=f"Estado: {status_text}", font=("Segoe UI", 8, "bold"), foreground=status_color)
+        status_lbl = ttk.Label(box_hidhide, text=self.t("set_status_lbl", status=status_text), font=("Segoe UI", 8, "bold"), foreground=status_color)
         status_lbl.pack(anchor="w", pady=(0, 4))
 
         ttk.Label(box_hidhide, text=self.t("set_hidhide_path"), font=("Segoe UI", 8)).pack(anchor="w")
@@ -1430,8 +1419,8 @@ class J360MoreApp:
 
         def on_browse_hidhide():
             chosen = filedialog.askopenfilename(
-                title="Seleccionar HidHideCLI.exe",
-                filetypes=[("HidHideCLI executable", "HidHideCLI.exe"), ("Todos los ejecutables", "*.exe"), ("Todos los archivos", "*.*")]
+                title=self.t("set_browse_title"),
+                filetypes=[("HidHideCLI executable", "HidHideCLI.exe"), ("*.exe", "*.exe"), ("*.*", "*.*")]
             )
             if chosen:
                 path_var.set(chosen)
@@ -1441,12 +1430,12 @@ class J360MoreApp:
 
         # Opciones adicionales de HidHide
         cloak_active_var = tk.BooleanVar(value=self.driver_manager.is_cloak_active() if is_installed else True)
-        chk_cloak = ttk.Checkbutton(box_hidhide, text="Activar Ocultamiento Global de HidHide (Cloaking)", variable=cloak_active_var)
+        chk_cloak = ttk.Checkbutton(box_hidhide, text=self.t("set_chk_cloak"), variable=cloak_active_var)
         chk_cloak.pack(anchor="w", pady=2)
 
         warn_suppressed = self.config.get("suppress_hidhide_warning", False)
         show_warn_var = tk.BooleanVar(value=not warn_suppressed)
-        chk_warn = ttk.Checkbutton(box_hidhide, text="Mostrar advertencia al inicio si HidHide no se detecta", variable=show_warn_var)
+        chk_warn = ttk.Checkbutton(box_hidhide, text=self.t("set_chk_warn"), variable=show_warn_var)
         chk_warn.pack(anchor="w", pady=2)
 
         def apply_settings():
@@ -1533,8 +1522,8 @@ class J360MoreApp:
         tree.heading("state", text=self.t("dev_col_status"))
         tree.heading("instance_id", text="Instance ID")
         tree.heading("hidhide", text=self.t("dev_col_hide"))
-        tree.heading("vendor", text=self.t("dev_col_name"))
-        tree.heading("product", text="Product Name")
+        tree.heading("vendor", text=self.t("dev_col_vendor"))
+        tree.heading("product", text=self.t("dev_col_product"))
 
         tree.column("xinput", width=90, anchor="center")
         tree.column("type", width=65, anchor="center")
@@ -1602,24 +1591,24 @@ class J360MoreApp:
 
                 xinput_str = ", ".join(assigned_map.get(dev["id"], []))
                 conn_icon = "🔌 USB" if dev["conn_type"] == "USB" else ("📶 BT" if dev["conn_type"] == "BT" else "⌨️ SYS")
-                status_str = "✔ Conectado"
+                status_str = self.t("dev_status_connected")
 
                 inst_path = dev.get("instance_path")
                 is_marked = inst_path and (inst_path in self.config.get("hidden_devices", []))
 
                 if not has_hidhide:
-                    hidhide_str = "No disponible"
+                    hidhide_str = self.t("dev_not_available")
                 elif dev.get("type") != "joystick" or not inst_path:
                     hidhide_str = "N/A"
                 elif is_marked:
                     if self.engine.is_running():
-                        hidhide_str = "🚫 Oculto (Emulando)"
+                        hidhide_str = self.t("dev_hidden_emulating")
                     else:
-                        hidhide_str = "🔒 Ocultar al Emular"
+                        hidhide_str = self.t("dev_cloak_on_emu")
                 elif dev.get("is_hidden"):
-                    hidhide_str = "🚫 Oculto (Sistema)"
+                    hidhide_str = self.t("dev_hidden_system")
                 else:
-                    hidhide_str = "👁 Visible"
+                    hidhide_str = self.t("dev_visible")
 
                 tree.insert(
                     "",
@@ -1630,8 +1619,8 @@ class J360MoreApp:
                         status_str,
                         dev.get("instance_id", "N/A"),
                         hidhide_str,
-                        dev.get("vendor_name", "(Dispositivos de sistema estándar)"),
-                        dev.get("product_name", dev.get("name", "Dispositivo"))
+                        dev.get("vendor_name", self.t("dev_std_vendor")),
+                        dev.get("product_name", dev.get("name", self.t("dev_device_fallback")))
                     ),
                     tags=(dev["id"],)
                 )
@@ -1641,7 +1630,7 @@ class J360MoreApp:
         def inspect_selected_device():
             selected = tree.selection()
             if not selected:
-                messagebox.showinfo("Hardware", "Selecciona un dispositivo de la lista para ver su información de hardware.")
+                messagebox.showinfo(self.t("dev_btn_hw"), self.t("dev_hw_no_selection"))
                 return
             item = tree.item(selected[0])
             tags = item.get("tags", [])
@@ -1654,30 +1643,31 @@ class J360MoreApp:
             is_marked = inst_path and (inst_path in self.config.get("hidden_devices", []))
 
             if not has_hidhide:
-                hidhide_state = "No disponible (HidHide no instalado)"
+                hidhide_state = self.t("dev_not_available")
             elif is_marked and self.engine.is_running():
-                hidhide_state = "🚫 Oculto (Emulación activa)"
+                hidhide_state = self.t("dev_hidden_emulating")
             elif is_marked:
-                hidhide_state = "🔒 Marcado para ocultar al emular"
+                hidhide_state = self.t("dev_cloak_on_emu")
             elif dev.get("is_hidden"):
-                hidhide_state = "🚫 Oculto (Directo en HidHide)"
+                hidhide_state = self.t("dev_hidden_system")
             else:
-                hidhide_state = "👁 Visible (Todo el sistema)"
+                hidhide_state = self.t("dev_visible")
 
             info_text = (
-                f"Nombre del Producto: {dev.get('product_name', 'N/A')}\n"
-                f"Fabricante / Vendor: {dev.get('vendor_name', 'N/A')}\n"
-                f"Instance ID: {dev.get('instance_id', 'N/A')}\n"
-                f"Estado HidHide: {hidhide_state}\n"
-                f"Ruta de Instancia PnP: {inst_path or 'N/A'}\n"
-                f"Tipo de Conexión: {dev.get('conn_type', 'N/A')}\n"
+                f"{self.t('dev_hw_product_name')} {dev.get('product_name', 'N/A')}\n"
+                f"{self.t('dev_hw_vendor')} {dev.get('vendor_name', 'N/A')}\n"
+                f"{self.t('dev_hw_inst_id')} {dev.get('instance_id', 'N/A')}\n"
+                f"{self.t('dev_hw_hidhide_state')} {hidhide_state}\n"
+                f"{self.t('dev_hw_pnp_path')} {inst_path or 'N/A'}\n"
+                f"{self.t('dev_hw_conn_type')} {dev.get('conn_type', 'N/A')}\n"
                 f"VID: 0x{dev.get('vid', '0000')} | PID: 0x{dev.get('pid', '0000')}\n"
-                f"Botones Físicos: {dev.get('num_buttons', 'N/A')}\n"
-                f"Ejes Analógicos: {dev.get('num_axes', 'N/A')}\n"
-                f"Crucetas (Hats): {dev.get('num_hats', 'N/A')}\n"
-                f"GUID SDL: {dev.get('guid', 'N/A')}"
+                f"{self.t('dev_hw_buttons')} {dev.get('num_buttons', 'N/A')}\n"
+                f"{self.t('dev_hw_axes')} {dev.get('num_axes', 'N/A')}\n"
+                f"{self.t('dev_hw_hats')} {dev.get('num_hats', 'N/A')}\n"
+                f"{self.t('dev_hw_guid')} {dev.get('guid', 'N/A')}"
             )
-            messagebox.showinfo(f"Propiedades de Hardware - {dev.get('product_name')}", info_text)
+            pname = dev.get('product_name', dev.get('name', ''))
+            messagebox.showinfo(self.t("dev_hw_title", name=pname), info_text)
 
         def hide_selected_device():
             if not has_hidhide:
@@ -1685,7 +1675,7 @@ class J360MoreApp:
 
             selected = tree.selection()
             if not selected:
-                messagebox.showinfo("HidHide", "Selecciona un dispositivo de la lista.")
+                messagebox.showinfo("HidHide", self.t("dev_select_device"))
                 return
             item = tree.item(selected[0])
             tags = item.get("tags", [])
@@ -1696,7 +1686,7 @@ class J360MoreApp:
 
             inst_path = dev.get("instance_path")
             if not inst_path:
-                messagebox.showwarning("HidHide", "Este dispositivo no tiene una ruta de hardware PnP asociada para ocultar.")
+                messagebox.showwarning("HidHide", self.t("dev_no_pnp_path"))
                 return
 
             hidden_list = self.config.setdefault("hidden_devices", [])
@@ -1708,14 +1698,12 @@ class J360MoreApp:
                 self.driver_manager.hide_device(inst_path)
                 messagebox.showinfo(
                     "HidHide",
-                    f"¡Dispositivo configurado y ocultado!\n\n"
-                    f"'{dev.get('product_name')}' ha sido ocultado de inmediato porque la emulación está activa."
+                    self.t("dev_hide_active_msg", name=dev.get('product_name'))
                 )
             else:
                 messagebox.showinfo(
                     "HidHide",
-                    f"¡Dispositivo marcado!\n\n"
-                    f"'{dev.get('product_name')}' se ocultará automáticamente cuando inicies la emulación con '▶ Iniciar Emulación'."
+                    self.t("dev_hide_marked_msg", name=dev.get('product_name'))
                 )
             populate_tree()
 
@@ -1725,7 +1713,7 @@ class J360MoreApp:
 
             selected = tree.selection()
             if not selected:
-                messagebox.showinfo("HidHide", "Selecciona un dispositivo de la lista.")
+                messagebox.showinfo("HidHide", self.t("dev_select_device"))
                 return
             item = tree.item(selected[0])
             tags = item.get("tags", [])
@@ -1736,7 +1724,7 @@ class J360MoreApp:
 
             inst_path = dev.get("instance_path")
             if not inst_path:
-                messagebox.showwarning("HidHide", "Este dispositivo no tiene una ruta de hardware PnP asociada.")
+                messagebox.showwarning("HidHide", self.t("dev_no_pnp_path"))
                 return
 
             hidden_list = self.config.setdefault("hidden_devices", [])
@@ -1747,8 +1735,7 @@ class J360MoreApp:
             self.driver_manager.unhide_device(inst_path)
             messagebox.showinfo(
                 "HidHide",
-                f"¡Dispositivo configurado como visible!\n\n"
-                f"'{dev.get('product_name')}' se mantendrá visible para todo el sistema."
+                self.t("dev_unhide_msg", name=dev.get('product_name'))
             )
             populate_tree()
 
@@ -1763,7 +1750,7 @@ class J360MoreApp:
         def assign_to_current_tab():
             selected = tree.selection()
             if not selected:
-                messagebox.showinfo("Asignar", "Selecciona un dispositivo de la lista.")
+                messagebox.showinfo(self.t("dev_btn_assign"), self.t("dev_select_device"))
                 return
             item = tree.item(selected[0])
             tags = item.get("tags", [])
@@ -1784,7 +1771,7 @@ class J360MoreApp:
 
         ttk.Button(bottom_box, text=self.t("dev_btn_assign"), command=assign_to_current_tab).pack(side=tk.LEFT, padx=4)
 
-        hidhide_status_text = "🛡️ HidHide: Activo (Puedes ocultar periféricos)" if has_hidhide else "⚠️ HidHide: No instalado (Opciones de ocultamiento deshabilitadas)"
+        hidhide_status_text = self.t("dev_hidhide_active_bar") if has_hidhide else self.t("dev_hidhide_missing_bar")
         hidhide_status_color = "#008800" if has_hidhide else "#888888"
         lbl_hid_status = ttk.Label(bottom_box, text=hidhide_status_text, font=("Segoe UI", 8, "italic"), foreground=hidhide_status_color)
         lbl_hid_status.pack(side=tk.LEFT, padx=8)
