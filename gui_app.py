@@ -262,11 +262,7 @@ class J360MoreApp:
             if hasattr(self, "btn_toggle_emu"):
                 self.btn_toggle_emu.config(text=self.t("btn_start_emu"))
 
-        for i, tab in self.tab_frames.items():
-            tab_text = self.t("tab_c", i=i) if max_ctrls > 8 else self.t("tab_control", i=i)
-            self.notebook.tab(tab, text=f" {tab_text} ")
-
-        self._refresh_all_devices()
+        self._rebuild_tabs(max_ctrls)
 
     def _setup_app_icon(self):
         """Configura el icono de la ventana principal y secundarias a partir de icon.svg o icon.ico/png"""
@@ -456,7 +452,8 @@ class J360MoreApp:
 
         for i in range(1, count + 1):
             tab = ttk.Frame(self.notebook, padding=4)
-            self.notebook.add(tab, text=f" C{i} " if count > 8 else f" Control {i} ")
+            tab_text = self.t("tab_c", i=i) if count > 8 else self.t("tab_control", i=i)
+            self.notebook.add(tab, text=f" {tab_text} ")
             self.tab_frames[i] = tab
             self._build_tab_content(i, tab)
 
@@ -465,7 +462,7 @@ class J360MoreApp:
             self.notebook.select(target_idx)
 
         if hasattr(self, "title_lbl"):
-            self.title_lbl.config(text=f"j360More ({count} Mandos)")
+            self.title_lbl.config(text=self.t("header_title", count=count))
 
         self._refresh_all_devices()
 
@@ -477,21 +474,21 @@ class J360MoreApp:
         top_bar.pack(fill=tk.X, pady=(0, 2))
 
         enabled_var = tk.BooleanVar(value=self.config.get("controllers", {}).get(str(pad_id), {}).get("enabled", True))
-        chk_enable = ttk.Checkbutton(top_bar, text="Habilitado", variable=enabled_var, command=self._sync_ui_to_config)
+        chk_enable = ttk.Checkbutton(top_bar, text=self.t("lbl_enabled"), variable=enabled_var, command=self._sync_ui_to_config)
         chk_enable.pack(side=tk.LEFT, padx=(2, 10))
         widgets["enabled_var"] = enabled_var
         widgets["chk_enable"] = chk_enable
 
-        ttk.Label(top_bar, text="Periférico:").pack(side=tk.LEFT, padx=2)
+        ttk.Label(top_bar, text=f"{self.t('lbl_device')}:").pack(side=tk.LEFT, padx=2)
         dev_combo = ttk.Combobox(top_bar, state="readonly", width=38)
         dev_combo.pack(side=tk.LEFT, padx=3)
         dev_combo.bind("<<ComboboxSelected>>", lambda e, p=pad_id: self._on_device_selected(p))
         widgets["dev_combo"] = dev_combo
 
-        btn_refresh = ttk.Button(top_bar, text="🔄 Refrescar", command=self._refresh_all_devices)
+        btn_refresh = ttk.Button(top_bar, text=self.t("btn_refresh"), command=self._refresh_all_devices)
         btn_refresh.pack(side=tk.LEFT, padx=4)
 
-        btn_copy = ttk.Button(top_bar, text="📋 Copiar Mapeo a...", command=lambda p=pad_id: self._open_copy_dialog(p))
+        btn_copy = ttk.Button(top_bar, text=self.t("btn_copy_to"), command=lambda p=pad_id: self._open_copy_dialog(p))
         btn_copy.pack(side=tk.LEFT, padx=4)
         widgets["mapping_controls"].append(btn_copy)
 
@@ -502,17 +499,17 @@ class J360MoreApp:
 
         # Sub-pestaña 1: General
         sub_gen = ttk.Frame(sub_nb, padding=2)
-        sub_nb.add(sub_gen, text=" General ")
+        sub_nb.add(sub_gen, text=f" {self.t('subtab_general')} ")
         self._build_subtab_general(pad_id, sub_gen, widgets)
 
         # Sub-pestaña 2: Triggers
         sub_trig = ttk.Frame(sub_nb, padding=4)
-        sub_nb.add(sub_trig, text=" Triggers ")
+        sub_nb.add(sub_trig, text=f" {self.t('subtab_triggers')} ")
         self._build_subtab_triggers(pad_id, sub_trig, widgets)
 
         # Sub-pestaña 3: Sticks (Stick Izquierdo y Stick Derecho combinados)
         sub_sticks = ttk.Frame(sub_nb, padding=4)
-        sub_nb.add(sub_sticks, text=" Sticks ")
+        sub_nb.add(sub_sticks, text=f" {self.t('subtab_sticks')} ")
         self._build_subtab_sticks(pad_id, sub_sticks, widgets)
 
         self.tab_widgets[pad_id] = widgets
@@ -544,21 +541,21 @@ class J360MoreApp:
             widgets["buttons"][target_name] = btn
 
         # Columna Izquierda
-        ttk.Label(left_col, text="CONTROLES IZQUIERDOS", font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(0, 1))
-        make_row(left_col, "Trigger (LT):", "LEFT_TRIGGER")
-        make_row(left_col, "Bumper (LB):", "LEFT_SHOULDER")
-        make_row(left_col, "Back:", "BACK")
-        make_row(left_col, "Start:", "START")
-        make_row(left_col, "Guía (Xbox):", "GUIDE")
+        ttk.Label(left_col, text=self.t("sec_left_controls"), font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(0, 1))
+        make_row(left_col, self.t("row_left_trigger"), "LEFT_TRIGGER")
+        make_row(left_col, self.t("row_left_shoulder"), "LEFT_SHOULDER")
+        make_row(left_col, self.t("row_back"), "BACK")
+        make_row(left_col, self.t("row_start"), "START")
+        make_row(left_col, self.t("row_guide"), "GUIDE")
         ttk.Separator(left_col, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=2)
-        ttk.Label(left_col, text="STICK IZQ. (EJES / TECLAS)", font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(0, 1))
-        make_row(left_col, "Stick Eje X:", "LEFT_STICK_X")
-        make_row(left_col, "Stick Eje Y:", "LEFT_STICK_Y")
-        make_row(left_col, "Stick Botón:", "LEFT_THUMB")
-        make_row(left_col, "Stick Arriba:", "LEFT_STICK_UP")
-        make_row(left_col, "Stick Abajo:", "LEFT_STICK_DOWN")
-        make_row(left_col, "Stick Izq.:", "LEFT_STICK_LEFT")
-        make_row(left_col, "Stick Der.:", "LEFT_STICK_RIGHT")
+        ttk.Label(left_col, text=self.t("sec_left_stick"), font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(0, 1))
+        make_row(left_col, self.t("row_stick_axis_x"), "LEFT_STICK_X")
+        make_row(left_col, self.t("row_stick_axis_y"), "LEFT_STICK_Y")
+        make_row(left_col, self.t("row_stick_button"), "LEFT_THUMB")
+        make_row(left_col, self.t("row_stick_up"), "LEFT_STICK_UP")
+        make_row(left_col, self.t("row_stick_down"), "LEFT_STICK_DOWN")
+        make_row(left_col, self.t("row_stick_left"), "LEFT_STICK_LEFT")
+        make_row(left_col, self.t("row_stick_right"), "LEFT_STICK_RIGHT")
 
         # Columna Central: Imagen SVG y Clic Interactivo
         c_w, c_h = 350, 275
@@ -586,39 +583,39 @@ class J360MoreApp:
         widgets["rec_indicators"] = {"halo": rec_halo, "core": rec_core}
 
         # Mensaje de ayuda / tooltip
-        self.hint_lbl = ttk.Label(center_col, text="💡 Clic en cualquier botón del mando para mapear", font=("Segoe UI", 8, "italic"))
+        self.hint_lbl = ttk.Label(center_col, text=self.t("hint_canvas_click"), font=("Segoe UI", 8, "italic"))
         self.hint_lbl.pack(pady=1)
 
         # D-Pad inferior centrado con textos centrados
         dpad_outer = ttk.Frame(center_col)
         dpad_outer.pack(pady=2)
 
-        ttk.Label(dpad_outer, text="CRUCETA (D-PAD)", font=("Segoe UI", 8, "bold"), anchor="center").pack(fill=tk.X, pady=(0, 1))
+        ttk.Label(dpad_outer, text=self.t("sec_dpad"), font=("Segoe UI", 8, "bold"), anchor="center").pack(fill=tk.X, pady=(0, 1))
 
         dpad_frame = ttk.Frame(dpad_outer)
         dpad_frame.pack()
-        make_row(dpad_frame, "D-Pad Arriba:", "DPAD_UP", label_anchor="center", lbl_width=14)
-        make_row(dpad_frame, "D-Pad Abajo:", "DPAD_DOWN", label_anchor="center", lbl_width=14)
-        make_row(dpad_frame, "D-Pad Izq.:", "DPAD_LEFT", label_anchor="center", lbl_width=14)
-        make_row(dpad_frame, "D-Pad Der.:", "DPAD_RIGHT", label_anchor="center", lbl_width=14)
+        make_row(dpad_frame, self.t("row_dpad_up"), "DPAD_UP", label_anchor="center", lbl_width=14)
+        make_row(dpad_frame, self.t("row_dpad_down"), "DPAD_DOWN", label_anchor="center", lbl_width=14)
+        make_row(dpad_frame, self.t("row_dpad_left"), "DPAD_LEFT", label_anchor="center", lbl_width=14)
+        make_row(dpad_frame, self.t("row_dpad_right"), "DPAD_RIGHT", label_anchor="center", lbl_width=14)
 
         # Columna Derecha
-        ttk.Label(right_col, text="CONTROLES DERECHOS", font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(0, 1))
-        make_row(right_col, "Trigger (RT):", "RIGHT_TRIGGER")
-        make_row(right_col, "Bumper (RB):", "RIGHT_SHOULDER")
-        make_row(right_col, "Botón Y:", "Y")
-        make_row(right_col, "Botón X:", "X")
-        make_row(right_col, "Botón B:", "B")
-        make_row(right_col, "Botón A:", "A")
+        ttk.Label(right_col, text=self.t("sec_right_controls"), font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(0, 1))
+        make_row(right_col, self.t("row_right_trigger"), "RIGHT_TRIGGER")
+        make_row(right_col, self.t("row_right_shoulder"), "RIGHT_SHOULDER")
+        make_row(right_col, self.t("row_btn_y"), "Y")
+        make_row(right_col, self.t("row_btn_x"), "X")
+        make_row(right_col, self.t("row_btn_b"), "B")
+        make_row(right_col, self.t("row_btn_a"), "A")
         ttk.Separator(right_col, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=2)
-        ttk.Label(right_col, text="STICK DER. (EJES / TECLAS)", font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(0, 1))
-        make_row(right_col, "Stick Eje X:", "RIGHT_STICK_X")
-        make_row(right_col, "Stick Eje Y:", "RIGHT_STICK_Y")
-        make_row(right_col, "Stick Botón:", "RIGHT_THUMB")
-        make_row(right_col, "Stick Arriba:", "RIGHT_STICK_UP")
-        make_row(right_col, "Stick Abajo:", "RIGHT_STICK_DOWN")
-        make_row(right_col, "Stick Izq.:", "RIGHT_STICK_LEFT")
-        make_row(right_col, "Stick Der.:", "RIGHT_STICK_RIGHT")
+        ttk.Label(right_col, text=self.t("sec_right_stick"), font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(0, 1))
+        make_row(right_col, self.t("row_stick_axis_x"), "RIGHT_STICK_X")
+        make_row(right_col, self.t("row_stick_axis_y"), "RIGHT_STICK_Y")
+        make_row(right_col, self.t("row_stick_button"), "RIGHT_THUMB")
+        make_row(right_col, self.t("row_stick_up"), "RIGHT_STICK_UP")
+        make_row(right_col, self.t("row_stick_down"), "RIGHT_STICK_DOWN")
+        make_row(right_col, self.t("row_stick_left"), "RIGHT_STICK_LEFT")
+        make_row(right_col, self.t("row_stick_right"), "RIGHT_STICK_RIGHT")
 
         cfg = self.config.get("controllers", {}).get(str(pad_id), {})
         saved_maps = cfg.get("mappings", {})
@@ -690,11 +687,11 @@ class J360MoreApp:
         target = self._find_target_at_pos(event.x, event.y)
         if target:
             canvas.config(cursor="hand2")
-            lbl_text = TARGET_NAMES_ES.get(target, target)
-            self.hint_lbl.config(text=f"👉 Clic para mapear: [{lbl_text}]")
+            lbl_text = self.target_name(target)
+            self.hint_lbl.config(text=self.t("hint_click_map", name=lbl_text))
         else:
             canvas.config(cursor="")
-            self.hint_lbl.config(text="💡 Clic en cualquier botón del mando para mapear")
+            self.hint_lbl.config(text=self.t("hint_canvas_click"))
 
     def _on_canvas_click(self, event, pad_id: int):
         widgets = self.tab_widgets.get(pad_id, {})
@@ -703,8 +700,8 @@ class J360MoreApp:
 
         target = self._find_target_at_pos(event.x, event.y)
         if target:
-            lbl_text = TARGET_NAMES_ES.get(target, target)
-            self.hint_lbl.config(text=f"🎯 Mapeando: [{lbl_text}]... Presiona botón en tu mando o tecla")
+            lbl_text = self.target_name(target)
+            self.hint_lbl.config(text=self.t("hint_mapping_wait", name=lbl_text))
             self._start_record(pad_id, target)
 
     def _build_calib_row(self, parent, label_text: str, from_: float, to: float, init_val: float, var_holder: dict, var_key: str, widgets: dict = None):
@@ -785,7 +782,7 @@ class J360MoreApp:
             data = calib_cfg.get(trig_key, {"deadzone": 0, "anti_deadzone": 0, "sensitivity": 0, "invert": False})
 
             # Contenedor visual: Curva de Respuesta cuadrada
-            curve_box = ttk.LabelFrame(box, text="Curva Respuesta", padding=2)
+            curve_box = ttk.LabelFrame(box, text=self.t("curve_response"), padding=2)
             curve_box.pack(side=tk.LEFT, padx=6)
 
             s_w, s_h = 125, 125
@@ -799,12 +796,12 @@ class J360MoreApp:
             right_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10)
 
             calib_vars = {}
-            adz_var = self._build_calib_row(right_box, "Anti-Dead Zone:", 0, 100, float(data.get("anti_deadzone", 0)), calib_vars, "adz_var", widgets)
-            dz_var = self._build_calib_row(right_box, "Dead Zone:", 0, 100, float(data.get("deadzone", 0)), calib_vars, "dz_var", widgets)
-            sens_var = self._build_calib_row(right_box, "Sensibilidad:", -100, 100, float(data.get("sensitivity", 0)), calib_vars, "sens_var", widgets)
+            adz_var = self._build_calib_row(right_box, self.t("lbl_anti_deadzone"), 0, 100, float(data.get("anti_deadzone", 0)), calib_vars, "adz_var", widgets)
+            dz_var = self._build_calib_row(right_box, self.t("lbl_deadzone"), 0, 100, float(data.get("deadzone", 0)), calib_vars, "dz_var", widgets)
+            sens_var = self._build_calib_row(right_box, self.t("lbl_sensitivity"), -100, 100, float(data.get("sensitivity", 0)), calib_vars, "sens_var", widgets)
 
             inv_var = tk.BooleanVar(value=data.get("invert", False))
-            chk_inv = ttk.Checkbutton(right_box, text="Invertir eje (Invert)", variable=inv_var, command=self._sync_ui_to_config)
+            chk_inv = ttk.Checkbutton(right_box, text=self.t("chk_invert_axis"), variable=inv_var, command=self._sync_ui_to_config)
             chk_inv.pack(anchor="w", pady=1)
             widgets["mapping_controls"].append(chk_inv)
 
@@ -817,8 +814,8 @@ class J360MoreApp:
                 "inv_var": inv_var
             }
 
-        make_trigger_panel(parent, "left_trigger", "Gatillo Izquierdo (Left Trigger)")
-        make_trigger_panel(parent, "right_trigger", "Gatillo Derecho (Right Trigger)")
+        make_trigger_panel(parent, "left_trigger", self.t("title_left_trigger"))
+        make_trigger_panel(parent, "right_trigger", self.t("title_right_trigger"))
 
     def _build_subtab_sticks(self, pad_id: int, parent: ttk.Frame, widgets: dict):
         cfg = self.config.get("controllers", {}).get(str(pad_id), {})
@@ -835,7 +832,7 @@ class J360MoreApp:
             visuals_row.pack(side=tk.LEFT, padx=6)
 
             # 1. Posición 2D
-            pos_box = ttk.LabelFrame(visuals_row, text="Posición 2D", padding=2)
+            pos_box = ttk.LabelFrame(visuals_row, text=self.t("pos_2d"), padding=2)
             pos_box.pack(side=tk.LEFT, padx=3)
 
             s_w, s_h = 125, 125
@@ -846,7 +843,7 @@ class J360MoreApp:
             lbl_xy.pack(pady=1)
 
             # 2. Curva de Sensibilidad
-            curve_box = ttk.LabelFrame(visuals_row, text="Curva Respuesta", padding=2)
+            curve_box = ttk.LabelFrame(visuals_row, text=self.t("curve_response"), padding=2)
             curve_box.pack(side=tk.LEFT, padx=3)
 
             cv_curve = tk.Canvas(curve_box, width=s_w, height=s_h, bg="#ffffff", highlightthickness=1, highlightbackground="#cccccc")
@@ -860,20 +857,20 @@ class J360MoreApp:
             right_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=8)
 
             calib_vars = {}
-            adz_var = self._build_calib_row(right_box, "Anti-Dead Zone:", 0, 100, float(data.get("anti_deadzone", 0)), calib_vars, "adz_var", widgets)
-            dz_var = self._build_calib_row(right_box, "Dead Zone:", 0, 100, float(data.get("deadzone", 8)), calib_vars, "dz_var", widgets)
-            sens_var = self._build_calib_row(right_box, "Sensibilidad:", -100, 100, float(data.get("sensitivity", 0)), calib_vars, "sens_var", widgets)
+            adz_var = self._build_calib_row(right_box, self.t("lbl_anti_deadzone"), 0, 100, float(data.get("anti_deadzone", 0)), calib_vars, "adz_var", widgets)
+            dz_var = self._build_calib_row(right_box, self.t("lbl_deadzone"), 0, 100, float(data.get("deadzone", 8)), calib_vars, "dz_var", widgets)
+            sens_var = self._build_calib_row(right_box, self.t("lbl_sensitivity"), -100, 100, float(data.get("sensitivity", 0)), calib_vars, "sens_var", widgets)
 
             check_row = ttk.Frame(right_box)
             check_row.pack(fill=tk.X, pady=2)
 
             inv_x_var = tk.BooleanVar(value=data.get("invert_x", False))
-            chk_inv_x = ttk.Checkbutton(check_row, text="Invertir Eje X", variable=inv_x_var, command=self._sync_ui_to_config)
+            chk_inv_x = ttk.Checkbutton(check_row, text=self.t("chk_invert_x"), variable=inv_x_var, command=self._sync_ui_to_config)
             chk_inv_x.pack(side=tk.LEFT, padx=(0, 10))
             widgets["mapping_controls"].append(chk_inv_x)
 
             inv_y_var = tk.BooleanVar(value=data.get("invert_y", False))
-            chk_inv_y = ttk.Checkbutton(check_row, text="Invertir Eje Y", variable=inv_y_var, command=self._sync_ui_to_config)
+            chk_inv_y = ttk.Checkbutton(check_row, text=self.t("chk_invert_y"), variable=inv_y_var, command=self._sync_ui_to_config)
             chk_inv_y.pack(side=tk.LEFT)
             widgets["mapping_controls"].append(chk_inv_y)
 
@@ -889,8 +886,8 @@ class J360MoreApp:
                 "inv_y_var": inv_y_var
             }
 
-        make_stick_box(parent, "left_stick", "Stick Izquierdo (Left Stick)")
-        make_stick_box(parent, "right_stick", "Stick Derecho (Right Stick)")
+        make_stick_box(parent, "left_stick", self.t("title_left_stick"))
+        make_stick_box(parent, "right_stick", self.t("title_right_stick"))
 
     def _update_tab_state(self, pad_id: int, has_dev: bool):
         """Si el control no tiene un periférico asignado, no se puede activar y todas las funciones de mapeo se desactivan (opacas)."""
@@ -956,7 +953,14 @@ class J360MoreApp:
 
     def _refresh_all_devices(self):
         self.available_devices = self.device_manager.refresh_devices()
-        dev_names = [d["name"] for d in self.available_devices]
+        dev_names = []
+        for d in self.available_devices:
+            if d["id"] == "none":
+                dev_names.append(self.t("none_disconnected"))
+            elif d["id"] == "keyboard":
+                dev_names.append(self.t("keyboard_device_name"))
+            else:
+                dev_names.append(d["name"])
 
         for pad_id, widgets in self.tab_widgets.items():
             cb = widgets["dev_combo"]
@@ -1072,18 +1076,13 @@ class J360MoreApp:
             conflict = self._check_mapping_conflict(pad_id, target_name, new_val)
             if conflict:
                 conflict_type, other_id, other_name, other_btn = conflict
-                other_btn_es = TARGET_NAMES_ES.get(other_btn, other_btn)
-                target_name_es = TARGET_NAMES_ES.get(target_name, target_name)
+                other_btn_str = self.target_name(other_btn)
+                target_name_str = self.target_name(target_name)
 
                 if conflict_type == "same":
                     ans = messagebox.askyesnocancel(
-                        "Aviso: Entrada ya mapeada en este mando",
-                        f"⚠️ La entrada '{new_val}' ya está asignada en este mismo mando:\n\n"
-                        f"  • Posición actual: [{other_btn_es}]\n\n"
-                        f"¿Qué deseas hacer para [{target_name_es}]?\n\n"
-                        f"[Sí] Mover a esta nueva posición (se desasigna de [{other_btn_es}]).\n"
-                        f"[No] Mantener la entrada en ambas posiciones (compartir).\n"
-                        f"[Cancelar] Descartar cambio y mantener valor anterior.",
+                        self.t("conflict_same_title"),
+                        self.t("conflict_same_msg", val=new_val, other=other_btn_str, target=target_name_str),
                         icon="warning"
                     )
                     if ans is None:
@@ -1099,14 +1098,8 @@ class J360MoreApp:
 
                 elif conflict_type == "other":
                     ans = messagebox.askyesnocancel(
-                        "Aviso: Entrada ya mapeada en otro mando",
-                        f"⚠️ La entrada '{new_val}' ya está asignada en otro mando virtual:\n\n"
-                        f"  • Mando: {other_name} (Control {other_id})\n"
-                        f"  • Botón asignado: [{other_btn_es}]\n\n"
-                        f"¿Qué deseas hacer?\n\n"
-                        f"[Sí] Reasignar a este mando (se desasigna del Control {other_id}).\n"
-                        f"[No] Mantener la entrada en ambos mandos (compartir).\n"
-                        f"[Cancelar] Descartar cambio y mantener valor anterior.",
+                        self.t("conflict_other_title"),
+                        self.t("conflict_other_msg", val=new_val, other=other_btn_str, name=other_name, id=other_id),
                         icon="warning"
                     )
                     if ans is None:
@@ -1146,7 +1139,7 @@ class J360MoreApp:
             btn.config(text="...")
         self.recording_target = None
         if hasattr(self, "hint_lbl"):
-            self.hint_lbl.config(text="❌ Asignación cancelada con Escape")
+            self.hint_lbl.config(text=self.t("hint_cancelled"))
 
     def _start_record(self, pad_id: int, target_name: str):
         if self.recording_target is not None:
@@ -1158,9 +1151,9 @@ class J360MoreApp:
             btn.config(text="[...]")
 
         self.recording_target = (pad_id, target_name, btn)
-        lbl_text = TARGET_NAMES_ES.get(target_name, target_name)
+        lbl_text = self.target_name(target_name)
         if hasattr(self, "hint_lbl"):
-            self.hint_lbl.config(text=f"🎯 Asignando: [{lbl_text}]... Presiona botón o tecla (Esc para cancelar)")
+            self.hint_lbl.config(text=self.t("hint_mapping_wait", name=lbl_text))
 
         cfg = self.config.get("controllers", {}).get(str(pad_id), {})
         dev_id = cfg.get("physical_device_id", "none")
@@ -1176,7 +1169,7 @@ class J360MoreApp:
                     self._apply_mapping_with_conflict_check(pad_id, target_name, detected)
                 self.recording_target = None
                 if hasattr(self, "hint_lbl"):
-                    self.hint_lbl.config(text="💡 Clic en cualquier botón del mando para mapear")
+                    self.hint_lbl.config(text=self.t("hint_canvas_click"))
             if btn:
                 btn.config(text="...")
 
@@ -1200,7 +1193,7 @@ class J360MoreApp:
                 self.recording_target = None
                 self._apply_mapping_with_conflict_check(pad_id, target_name, f"Tecla: {k_name}")
                 if hasattr(self, "hint_lbl"):
-                    self.hint_lbl.config(text="💡 Clic en cualquier botón del mando para mapear")
+                    self.hint_lbl.config(text=self.t("hint_canvas_click"))
                 return
 
         self.engine.on_key_event(event.keysym, is_pressed=True)
@@ -1245,9 +1238,9 @@ class J360MoreApp:
         if self.engine.is_running():
             self.engine.stop()
             self._unhide_emulation_devices()
-            self.btn_toggle_emu.config(text="▶ Iniciar Emulación")
+            self.btn_toggle_emu.config(text=self.t("btn_start_emu"))
             self.status_dot.itemconfig(self.status_circle, fill="#888888")
-            self.status_text_lbl.config(text="Emulación Detenida")
+            self.status_text_lbl.config(text=self.t("status_stopped"))
         else:
             # Comprobar si al menos un control tiene periférico asignado y está habilitado
             max_ctrls = self.config.get("max_controllers", 12)
@@ -1261,17 +1254,16 @@ class J360MoreApp:
 
             if not has_active_pad:
                 messagebox.showwarning(
-                    "Emulación No Disponible",
-                    "Ningún control tiene un periférico asignado o está habilitado.\n\n"
-                    "Asigna al menos un dispositivo físico (Joystick, Teclado o Mouse) en alguno de los controles para poder iniciar la emulación."
+                    self.t("emu_unavailable_title"),
+                    self.t("emu_unavailable_msg")
                 )
                 return
 
             self._hide_emulation_devices()
             self.engine.start()
-            self.btn_toggle_emu.config(text="⏹ Detener Emulación")
+            self.btn_toggle_emu.config(text=self.t("btn_stop_emu"))
             self.status_dot.itemconfig(self.status_circle, fill="#00cc44")
-            self.status_text_lbl.config(text="Emulación Activa (ViGEmBus)")
+            self.status_text_lbl.config(text=self.t("status_active"))
 
     def _reset_current_preset(self):
         cur_pad_id = self.notebook.index(self.notebook.select()) + 1
@@ -1300,7 +1292,7 @@ class J360MoreApp:
                 c_w[k]["inv_y_var"].set(False)
 
         self._sync_ui_to_config()
-        messagebox.showinfo("Preset", f"Se han restaurado los valores por defecto para el Control {cur_pad_id}.")
+        messagebox.showinfo("Preset", self.t("preset_restored", i=cur_pad_id))
 
     def _check_system_drivers(self):
         """Verifica la disponibilidad de ViGEmBus e HidHide al arrancar la aplicación."""
@@ -1392,7 +1384,7 @@ class J360MoreApp:
         lang_combo.pack(anchor="w", padx=4, pady=2)
 
         # SECCION 2: Mandos virtuales a emular
-        box_mandos = ttk.LabelFrame(frame, text="⚙ Mandos Virtuales a Emular", padding=10)
+        box_mandos = ttk.LabelFrame(frame, text=self.t("set_mandos_title"), padding=10)
         box_mandos.pack(fill=tk.X, pady=(0, 8))
 
         current_val = self.config.get("max_controllers", 8)
@@ -1416,7 +1408,7 @@ class J360MoreApp:
         ttk.Label(ticks_frame, text="12 Mandos", font=("Segoe UI", 8)).pack(side=tk.RIGHT)
 
         # SECCION 3: Integración con HidHide (Opcional)
-        box_hidhide = ttk.LabelFrame(frame, text="🛡 Integración con Nefarius HidHide (Opcional)", padding=10)
+        box_hidhide = ttk.LabelFrame(frame, text=self.t("set_hidhide_title"), padding=10)
         box_hidhide.pack(fill=tk.X, pady=(0, 8))
 
         is_installed = self.driver_manager.is_hidhide_installed()
@@ -1426,7 +1418,7 @@ class J360MoreApp:
         status_lbl = ttk.Label(box_hidhide, text=f"Estado: {status_text}", font=("Segoe UI", 8, "bold"), foreground=status_color)
         status_lbl.pack(anchor="w", pady=(0, 4))
 
-        ttk.Label(box_hidhide, text="Ruta de HidHideCLI.exe:", font=("Segoe UI", 8)).pack(anchor="w")
+        ttk.Label(box_hidhide, text=self.t("set_hidhide_path"), font=("Segoe UI", 8)).pack(anchor="w")
 
         path_row = ttk.Frame(box_hidhide)
         path_row.pack(fill=tk.X, pady=(2, 4))
@@ -1444,7 +1436,7 @@ class J360MoreApp:
             if chosen:
                 path_var.set(chosen)
 
-        btn_browse = ttk.Button(path_row, text="📂 Examinar...", command=on_browse_hidhide)
+        btn_browse = ttk.Button(path_row, text=self.t("set_btn_browse"), command=on_browse_hidhide)
         btn_browse.pack(side=tk.RIGHT)
 
         # Opciones adicionales de HidHide
@@ -1495,7 +1487,7 @@ class J360MoreApp:
         has_hidhide = self.driver_manager.is_hidhide_installed()
 
         dlg = tk.Toplevel(self.root)
-        dlg.title("Direct Input Devices")
+        dlg.title(self.t("dev_dlg_title"))
         dlg.geometry("860x440")
         dlg.resizable(True, True)
         dlg.transient(self.root)
@@ -1514,22 +1506,22 @@ class J360MoreApp:
 
         header_lbl = ttk.Label(
             top_header,
-            text="Direct Input Devices - everything this program can read and map",
+            text=self.t("dev_dlg_header"),
             font=("Segoe UI", 10, "bold")
         )
         header_lbl.pack(side=tk.LEFT, padx=2)
 
         # Barra de herramientas superior (Refresh, Hardware, Ocultar, Mostrar)
-        btn_refresh = ttk.Button(top_header, text="🔄 Refresh", command=lambda: populate_tree())
+        btn_refresh = ttk.Button(top_header, text=self.t("dev_btn_refresh"), command=lambda: populate_tree())
         btn_refresh.pack(side=tk.RIGHT, padx=2)
 
-        btn_hw = ttk.Button(top_header, text="🛠 Hardware...", command=lambda: inspect_selected_device())
+        btn_hw = ttk.Button(top_header, text=self.t("dev_btn_hw"), command=lambda: inspect_selected_device())
         btn_hw.pack(side=tk.RIGHT, padx=2)
 
-        btn_unhide = ttk.Button(top_header, text="🔓 Mantener Visible", command=lambda: unhide_selected_device(), state=tk.DISABLED)
+        btn_unhide = ttk.Button(top_header, text=self.t("dev_btn_unhide"), command=lambda: unhide_selected_device(), state=tk.DISABLED)
         btn_unhide.pack(side=tk.RIGHT, padx=2)
 
-        btn_hide = ttk.Button(top_header, text="🔒 Ocultar al Emular", command=lambda: hide_selected_device(), state=tk.DISABLED)
+        btn_hide = ttk.Button(top_header, text=self.t("dev_btn_hide"), command=lambda: hide_selected_device(), state=tk.DISABLED)
         btn_hide.pack(side=tk.RIGHT, padx=2)
 
         # Tabla Treeview con columna HidHide agregada
@@ -1537,11 +1529,11 @@ class J360MoreApp:
         tree = ttk.Treeview(main_f, columns=cols, show="headings", selectmode="browse")
 
         tree.heading("xinput", text="XInput")
-        tree.heading("type", text="Tipo")
-        tree.heading("state", text="Estado")
+        tree.heading("type", text=self.t("dev_col_type"))
+        tree.heading("state", text=self.t("dev_col_status"))
         tree.heading("instance_id", text="Instance ID")
-        tree.heading("hidhide", text="HidHide")
-        tree.heading("vendor", text="Vendor Name")
+        tree.heading("hidhide", text=self.t("dev_col_hide"))
+        tree.heading("vendor", text=self.t("dev_col_name"))
         tree.heading("product", text="Product Name")
 
         tree.column("xinput", width=90, anchor="center")
@@ -1788,16 +1780,16 @@ class J360MoreApp:
                         self._on_device_selected(cur_pad_id)
                         break
             populate_tree()
-            messagebox.showinfo("Asignación", f"¡Dispositivo asignado exitosamente al Control {cur_pad_id}!")
+            messagebox.showinfo(self.t("dev_dlg_title"), self.t("dev_assign_success", id=cur_pad_id))
 
-        ttk.Button(bottom_box, text="🎯 Asignar al Control Actual", command=assign_to_current_tab).pack(side=tk.LEFT, padx=4)
+        ttk.Button(bottom_box, text=self.t("dev_btn_assign"), command=assign_to_current_tab).pack(side=tk.LEFT, padx=4)
 
         hidhide_status_text = "🛡️ HidHide: Activo (Puedes ocultar periféricos)" if has_hidhide else "⚠️ HidHide: No instalado (Opciones de ocultamiento deshabilitadas)"
         hidhide_status_color = "#008800" if has_hidhide else "#888888"
         lbl_hid_status = ttk.Label(bottom_box, text=hidhide_status_text, font=("Segoe UI", 8, "italic"), foreground=hidhide_status_color)
         lbl_hid_status.pack(side=tk.LEFT, padx=8)
 
-        ttk.Button(bottom_box, text="Cerrar", command=dlg.destroy).pack(side=tk.RIGHT, padx=4)
+        ttk.Button(bottom_box, text=self.t("dev_btn_close"), command=dlg.destroy).pack(side=tk.RIGHT, padx=4)
 
     def _open_copy_dialog(self, source_pad_id: int):
         self._sync_ui_to_config()
@@ -1808,7 +1800,7 @@ class J360MoreApp:
         max_ctrls = self.config.get("max_controllers", 12)
 
         dlg = tk.Toplevel(self.root)
-        dlg.title("Copiar Configuración")
+        dlg.title(self.t("copy_dlg_title"))
         dlg.geometry("400x240")
         dlg.resizable(False, False)
         dlg.transient(self.root)
@@ -1821,19 +1813,20 @@ class J360MoreApp:
         frame = ttk.Frame(dlg, padding=12)
         frame.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(frame, text=f"📋 Copiar Mapeo desde: Control {source_pad_id}", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 6))
+        ttk.Label(frame, text=self.t("copy_from_pad", id=source_pad_id), font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 6))
 
-        ttk.Label(frame, text="Mando Destino:").pack(anchor="w")
-        dest_options = [f"Todos los demás mandos (1 al {max_ctrls})"] + [f"Control {i}" for i in range(1, max_ctrls + 1) if i != source_pad_id]
+        ttk.Label(frame, text=self.t("dest_controller")).pack(anchor="w")
+        all_others_label = self.t("dest_all_others", max=max_ctrls)
+        dest_options = [all_others_label] + [self.t("dest_pad_item", id=i) for i in range(1, max_ctrls + 1) if i != source_pad_id]
         dest_var = tk.StringVar(value=dest_options[0])
         cb_dest = ttk.Combobox(frame, values=dest_options, textvariable=dest_var, state="readonly", font=("Segoe UI", 9))
         cb_dest.pack(fill=tk.X, pady=4)
 
         inc_calib_var = tk.BooleanVar(value=True)
-        chk_calib = ttk.Checkbutton(frame, text="Incluir calibración (Deadzone, Anti-Deadzone, Sensibilidad)", variable=inc_calib_var)
+        chk_calib = ttk.Checkbutton(frame, text=self.t("inc_calib"), variable=inc_calib_var)
         chk_calib.pack(anchor="w", pady=6)
 
-        note_lbl = ttk.Label(frame, text="ℹ️ El periférico físico asignado a cada mando se conservará intacto.", font=("Segoe UI", 8, "italic"), foreground="#555555")
+        note_lbl = ttk.Label(frame, text=self.t("copy_note"), font=("Segoe UI", 8, "italic"), foreground="#555555")
         note_lbl.pack(anchor="w", pady=(0, 10))
 
         btn_box = ttk.Frame(frame)
@@ -1842,11 +1835,11 @@ class J360MoreApp:
         def do_copy():
             choice = dest_var.get()
             target_ids = []
-            if choice.startswith("Todos"):
+            if choice == all_others_label:
                 target_ids = [i for i in range(1, max_ctrls + 1) if i != source_pad_id]
             else:
                 try:
-                    t_id = int(choice.split()[1])
+                    t_id = int(choice.split()[-1])
                     target_ids = [t_id]
                 except Exception:
                     pass
@@ -1885,13 +1878,13 @@ class J360MoreApp:
 
             self.engine.set_config(self.config)
             dlg.destroy()
-            dest_msg = "todos los demás mandos" if choice.startswith("Todos") else choice
-            messagebox.showinfo("Copia Exitosa", f"¡Configuración de botones copiada con éxito a {dest_msg}!\n\nSolo debes asignar el periférico físico a cada control.")
+            dest_msg = all_others_label if choice == all_others_label else choice
+            messagebox.showinfo(self.t("copy_success_title"), self.t("copy_success_msg", dest=dest_msg))
 
-        btn_ok = ttk.Button(btn_box, text="✔ Copiar Configuración", command=do_copy)
+        btn_ok = ttk.Button(btn_box, text=self.t("btn_copy_submit"), command=do_copy)
         btn_ok.pack(side=tk.RIGHT, padx=4)
 
-        btn_cancel = ttk.Button(btn_box, text="Cancelar", command=dlg.destroy)
+        btn_cancel = ttk.Button(btn_box, text=self.t("set_btn_cancel"), command=dlg.destroy)
         btn_cancel.pack(side=tk.RIGHT, padx=4)
 
     def _open_joy_cpl(self):
