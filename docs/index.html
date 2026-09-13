@@ -35,6 +35,7 @@
 
       <ul class="nav-links">
         <li><a href="#cualidades" data-i18n="nav_features">Cualidades</a></li>
+        <li><a href="#capturas" data-i18n="nav_screenshots">Capturas</a></li>
         <li><a href="#controladores" data-i18n="nav_drivers">Controladores</a></li>
         <li><a href="#requisitos" data-i18n="nav_requirements">Requisitos</a></li>
         <li><a href="#inicio-rapido" data-i18n="nav_quickstart">Guía Rápida</a></li>
@@ -104,9 +105,28 @@
     </div>
 
     <div class="hero-visual">
-      <div class="controller-preview-card">
-        <img src="assets/controller_render.png" alt="Mando Xbox 360 Virtual">
-        <div class="controller-tag" data-i18n="hero_controller_tag">Mapeo Interactivo en Tiempo Real</div>
+      <div class="controller-preview-card" style="padding: 0; overflow: hidden; max-width: 500px;">
+        <div class="window-header">
+          <div class="window-dots">
+            <span class="window-dot red"></span>
+            <span class="window-dot yellow"></span>
+            <span class="window-dot green"></span>
+          </div>
+          <span class="window-title">j360More v1.0.0 - by JuanJSAR</span>
+        </div>
+        <div class="screenshot-img-wrapper">
+          <img src="assets/screenshot_main.png" alt="j360More Interfaz Principal" class="screenshot-zoomable" style="max-width: 100%; height: auto; animation: none;">
+          <div class="screenshot-overlay">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <span data-i18n="screenshot_zoom">Haz clic para ampliar</span>
+          </div>
+        </div>
+        <div style="padding: 0.85rem 1rem; background: rgba(0,0,0,0.4); border-top: 1px solid var(--border-color);">
+          <span class="controller-tag" style="margin-top: 0;" data-i18n="hero_controller_tag">Mapeo Interactivo en Tiempo Real (1 - 12 Mandos)</span>
+        </div>
       </div>
     </div>
   </section>
@@ -196,6 +216,112 @@
         <p data-i18n="f6_desc">
           Todas tus asignaciones de botones, dispositivos y calibraciones se guardan de forma limpia en <code>config_mapping.json</code> para transferir o respaldar en cualquier equipo.
         </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== Capturas de Pantalla / Screenshots Showcase ==================== -->
+  <section id="capturas" class="screenshots-section">
+    <div class="section-header">
+      <span class="section-tag" data-i18n="screenshots_tag">Galería de la Aplicación</span>
+      <h2 class="section-title" data-i18n="screenshots_title">Interfaz Real de j360More en Acción</h2>
+      <p class="section-desc" data-i18n="screenshots_subtitle">
+        Explora la interfaz moderna, limpia y potente diseñada para un control milimétrico y configuración sin esfuerzo.
+      </p>
+    </div>
+
+    <div class="screenshots-grid">
+      <!-- Screenshot 1: Main Mapping -->
+      <div class="screenshot-card">
+        <div class="window-mockup">
+          <div class="window-header">
+            <div class="window-dots">
+              <span class="window-dot red"></span>
+              <span class="window-dot yellow"></span>
+              <span class="window-dot green"></span>
+            </div>
+            <span class="window-title">j360More - Mapeo Principal (1 a 12 Mandos)</span>
+          </div>
+          <div class="screenshot-img-wrapper">
+            <img src="assets/screenshot_main.png" alt="j360More - Mapeo Visual Interactivo y Soporte Multi-Mando" class="screenshot-zoomable">
+            <div class="screenshot-overlay">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <span data-i18n="screenshot_zoom">Haz clic para ampliar</span>
+            </div>
+          </div>
+        </div>
+        <div class="screenshot-info">
+          <span class="screenshot-badge" data-i18n="s1_badge">Mapeo Principal</span>
+          <h3 class="screenshot-title" data-i18n="s1_title">Mapeo Visual Interactivo y Soporte Multi-Mando</h3>
+          <p class="screenshot-desc" data-i18n="s1_desc">
+            Diagrama interactivo del mando Xbox 360 con LEDs reactivos en tiempo real, pestañas dedicadas para hasta 12 jugadores y protección inteligente contra mandos fantasma.
+          </p>
+        </div>
+      </div>
+
+      <!-- Screenshot 2: Sticks Calibration -->
+      <div class="screenshot-card">
+        <div class="window-mockup">
+          <div class="window-header">
+            <div class="window-dots">
+              <span class="window-dot red"></span>
+              <span class="window-dot yellow"></span>
+              <span class="window-dot green"></span>
+            </div>
+            <span class="window-title">j360More - Calibración Analógica de Sticks</span>
+          </div>
+          <div class="screenshot-img-wrapper">
+            <img src="assets/screenshot_sticks.png" alt="j360More - Calibración Analógica Milimétrica" class="screenshot-zoomable">
+            <div class="screenshot-overlay">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <span data-i18n="screenshot_zoom">Haz clic para ampliar</span>
+            </div>
+          </div>
+        </div>
+        <div class="screenshot-info">
+          <span class="screenshot-badge" data-i18n="s2_badge">Calibración Fina</span>
+          <h3 class="screenshot-title" data-i18n="s2_title">Plano Cartesiano y Curvas de Respuesta de Sticks</h3>
+          <p class="screenshot-desc" data-i18n="s2_desc">
+            Visualizador 2D en tiempo real con control exacto de Zona Muerta (Dead Zone), Anti-Dead Zone para anular la deriva (drift), sensibilidad cuadrática e inversión de ejes.
+          </p>
+        </div>
+      </div>
+
+      <!-- Screenshot 3: Settings & HidHide -->
+      <div class="screenshot-card">
+        <div class="window-mockup">
+          <div class="window-header">
+            <div class="window-dots">
+              <span class="window-dot red"></span>
+              <span class="window-dot yellow"></span>
+              <span class="window-dot green"></span>
+            </div>
+            <span class="window-title">j360More - Configuración General & HidHide</span>
+          </div>
+          <div class="screenshot-img-wrapper">
+            <img src="assets/screenshot_settings.png" alt="j360More - Configuración General e Integración con HidHide" class="screenshot-zoomable">
+            <div class="screenshot-overlay">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <span data-i18n="screenshot_zoom">Haz clic para ampliar</span>
+            </div>
+          </div>
+        </div>
+        <div class="screenshot-info">
+          <span class="screenshot-badge" data-i18n="s3_badge">Ajustes del Sistema</span>
+          <h3 class="screenshot-title" data-i18n="s3_title">Configuración General e Integración con HidHide</h3>
+          <p class="screenshot-desc" data-i18n="s3_desc">
+            Selector bilingüe instantáneo (Español / Inglés), ajuste del número de mandos a emular (1 a 12) y activación del Cloaking global para erradicar el doble mando en juegos.
+          </p>
+        </div>
       </div>
     </div>
   </section>
@@ -482,6 +608,15 @@
       <div>Desarrollado con ViGEmBus & SDL2.</div>
     </div>
   </footer>
+
+  <!-- Lightbox Modal for Full-Size Screenshot View -->
+  <div id="lightbox-modal" class="lightbox-modal" role="dialog" aria-modal="true">
+    <div class="lightbox-content">
+      <button id="lightbox-close" class="lightbox-close" aria-label="Cerrar">&times;</button>
+      <img id="lightbox-img" src="" alt="Captura ampliada">
+      <div id="lightbox-caption" class="lightbox-caption"></div>
+    </div>
+  </div>
 
   <!-- Script with i18n support -->
   <script src="script.js"></script>

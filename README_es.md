@@ -13,6 +13,14 @@ Permite asociar periféricos físicos reales (mandos USB o Bluetooth DirectInput
 
 ---
 
+## 📸 Capturas de Pantalla
+
+| Mapeo y Emulación Principal | Calibración de Sticks Analógicos | Configuración e Integración HidHide |
+|:---:|:---:|:---:|
+| [![Mapeo Principal](assets/screenshot_main.png)](assets/screenshot_main.png) | [![Sticks Analógicos](assets/screenshot_sticks.png)](assets/screenshot_sticks.png) | [![Configuración](assets/screenshot_settings.png)](assets/screenshot_settings.png) |
+
+---
+
 ## 🎮 Características Principales
 
 ### 1. Soporte Extendido de 1 a 12 Mandos Simultáneos

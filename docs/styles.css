@@ -1004,3 +1004,224 @@ body::before {
     width: 35%;
   }
 }
+
+/* ==========================================================================
+   Screenshots Showcase & Lightbox Modal
+   ========================================================================== */
+.screenshots-section {
+  padding: 5rem 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.screenshots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 2.25rem;
+  margin-top: 2.5rem;
+}
+
+.screenshot-card {
+  background: linear-gradient(160deg, var(--bg-secondary) 0%, var(--bg-card) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.screenshot-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--xbox-neon);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), var(--shadow-glow);
+}
+
+.window-mockup {
+  position: relative;
+  background: #11141a;
+  border-bottom: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.window-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.window-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.window-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.window-dot.red { background: #ff5f56; }
+.window-dot.yellow { background: #ffbd2e; }
+.window-dot.green { background: #27c93f; }
+
+.window-title {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-left: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.screenshot-img-wrapper {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  background: #000000;
+}
+
+.screenshot-zoomable {
+  width: 100%;
+  height: auto;
+  display: block;
+  transition: transform 0.35s ease, filter 0.35s ease;
+}
+
+.screenshot-img-wrapper:hover .screenshot-zoomable {
+  transform: scale(1.03);
+  filter: brightness(1.05);
+}
+
+.screenshot-overlay {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(13, 17, 23, 0.85);
+  backdrop-filter: blur(8px);
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  font-size: 0.75rem;
+  color: var(--xbox-neon);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: all 0.25s ease;
+  pointer-events: none;
+}
+
+.screenshot-img-wrapper:hover .screenshot-overlay {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.screenshot-info {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex-grow: 1;
+}
+
+.screenshot-badge {
+  align-self: flex-start;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: rgba(16, 207, 101, 0.12);
+  color: var(--xbox-neon);
+  border: 1px solid rgba(16, 207, 101, 0.3);
+}
+
+.screenshot-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.screenshot-desc {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+/* Lightbox Modal */
+.lightbox-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 12, 0.92);
+  backdrop-filter: blur(12px);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.lightbox-modal.active {
+  display: flex;
+  opacity: 1;
+}
+
+.lightbox-content {
+  position: relative;
+  max-width: 1100px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.lightbox-content img {
+  width: 100%;
+  max-height: 82vh;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.8), var(--shadow-glow);
+  border: 1px solid var(--border-color);
+}
+
+.lightbox-caption {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  text-align: center;
+  background: rgba(22, 27, 34, 0.85);
+  padding: 6px 18px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+}
+
+.lightbox-close {
+  position: absolute;
+  top: -42px;
+  right: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.lightbox-close:hover {
+  color: var(--xbox-neon);
+  transform: scale(1.15);
+}
+

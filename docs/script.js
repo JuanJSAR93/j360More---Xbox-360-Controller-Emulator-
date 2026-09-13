@@ -97,7 +97,20 @@ const translations = {
     faq_a4: "j360More incluye calibración analógica avanzada. En la pestaña de calibración puedes aumentar la 'Zona Muerta (Deadzone)' en un porcentaje para que los movimientos no deseados del stick sean completamente ignorados.",
     cta_title: "¡Lleva el Multijugador en PC al Siguiente Nivel!",
     cta_desc: "Descarga la última versión de j360More desarrollada por JuanJSAR y disfruta de partidas locales con amigos sin complicaciones.",
-    cta_btn: "Descargar Última Versión en GitHub",
+    nav_screenshots: "Capturas",
+    screenshots_tag: "Galería de la Aplicación",
+    screenshots_title: "Interfaz Real de j360More en Acción",
+    screenshots_subtitle: "Explora la interfaz moderna, limpia y potente diseñada para un control milimétrico y configuración sin esfuerzo.",
+    s1_badge: "Mapeo Principal",
+    s1_title: "Mapeo Visual Interactivo y Soporte Multi-Mando",
+    s1_desc: "Diagrama interactivo del mando Xbox 360 con LEDs reactivos en tiempo real, pestañas dedicadas para hasta 12 jugadores y protección inteligente contra mandos fantasma.",
+    s2_badge: "Calibración Fina",
+    s2_title: "Plano Cartesiano y Curvas de Respuesta de Sticks",
+    s2_desc: "Visualizador 2D en tiempo real con control exacto de Zona Muerta (Dead Zone), Anti-Dead Zone para anular la deriva (drift), sensibilidad cuadrática e inversión de ejes.",
+    s3_badge: "Ajustes del Sistema",
+    s3_title: "Configuración General e Integración con HidHide",
+    s3_desc: "Selector bilingüe instantáneo (Español / Inglés), ajuste del número de mandos a emular (1 a 12) y activación del Cloaking global para erradicar el doble mando en juegos.",
+    screenshot_zoom: "Haz clic para ampliar en alta resolución",
     footer_desc: "Emulador de mandos virtuales Xbox 360 para Windows. Diseñado y desarrollado por JuanJSAR para ofrecer la máxima velocidad, estabilidad y flexibilidad en entornos multijugador de 1 a 12 participantes.",
     footer_drivers_title: "Controladores",
     footer_links_title: "Enlaces y Proyecto",
@@ -199,6 +212,20 @@ const translations = {
     cta_title: "Elevate Your PC Local Multiplayer Gaming!",
     cta_desc: "Download the latest release of j360More created by JuanJSAR and enjoy seamless local gaming with friends.",
     cta_btn: "Download Latest Release on GitHub",
+    nav_screenshots: "Screenshots",
+    screenshots_tag: "Application Showcase",
+    screenshots_title: "Real j360More Interface in Action",
+    screenshots_subtitle: "Explore the modern, sleek, and intuitive interface engineered for pinpoint calibration and effortless configuration.",
+    s1_badge: "Main Mapping",
+    s1_title: "Interactive Visual Mapping & Multi-Controller Support",
+    s1_desc: "Interactive Xbox 360 controller diagram with real-time reactive glow LEDs, dedicated tabs for up to 12 players, and smart protection against phantom devices.",
+    s2_badge: "Fine Calibration",
+    s2_title: "2D Cartesian Plane & Analog Sticks Response Curves",
+    s2_desc: "Real-time 2D Cartesian visualizer with precise Dead Zone control, Anti-Dead Zone to eliminate joystick drift, quadratic sensitivity curves, and axis inversion.",
+    s3_badge: "System Settings",
+    s3_title: "General Settings & Nefarius HidHide Integration",
+    s3_desc: "Instant bilingual switcher (English / Spanish), virtual controller count slider (1 to 12), and global Cloaking activation to eliminate double-input conflicts in games.",
+    screenshot_zoom: "Click to view full resolution",
     footer_desc: "Virtual Xbox 360 controller emulator for Windows. Designed and developed by JuanJSAR to provide unmatched speed, stability, and versatility for 1 to 12 local players.",
     footer_drivers_title: "Drivers",
     footer_links_title: "Links & Project",
@@ -300,4 +327,41 @@ document.addEventListener('DOMContentLoaded', () => {
       header.style.background = 'rgba(13, 17, 23, 0.85)';
     }
   });
+
+  // Screenshot Lightbox Modal
+  const modal = document.getElementById('lightbox-modal');
+  const modalImg = document.getElementById('lightbox-img');
+  const modalCaption = document.getElementById('lightbox-caption');
+  const modalClose = document.getElementById('lightbox-close');
+
+  if (modal && modalImg) {
+    document.querySelectorAll('.screenshot-zoomable').forEach(img => {
+      img.addEventListener('click', () => {
+        modalImg.src = img.src;
+        if (modalCaption) {
+          modalCaption.textContent = img.alt || '';
+        }
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      });
+    });
+
+    const closeModal = () => {
+      modal.classList.remove('active');
+      document.body.style.overflow = '';
+    };
+
+    if (modalClose) modalClose.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal || e.target === modalClose) {
+        closeModal();
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('active')) {
+        closeModal();
+      }
+    });
+  }
 });

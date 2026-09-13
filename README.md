@@ -13,6 +13,14 @@ Map real physical hardware (DirectInput/XInput gamepads via USB or Bluetooth, ge
 
 ---
 
+## 📸 Application Screenshots
+
+| Main Mapping & Emulation | Analog Sticks Calibration | Settings & HidHide Integration |
+|:---:|:---:|:---:|
+| [![Main Mapping](assets/screenshot_main.png)](assets/screenshot_main.png) | [![Analog Sticks](assets/screenshot_sticks.png)](assets/screenshot_sticks.png) | [![Settings](assets/screenshot_settings.png)](assets/screenshot_settings.png) |
+
+---
+
 ## 🎮 Key Features
 
 ### 1. Extended Support for 1 to 12 Simultaneous Controllers
