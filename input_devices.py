@@ -1,0 +1,361 @@
+import os
+import time
+import ctypes
+from typing import Dict, List, Optional, Tuple, Any, Set
+
+# Permitir ejecucion de pygame sin crear ventana grafica propia
+os.environ['SDL_VIDEODRIVER'] = 'dummy'
+import pygame
+from driver_manager import DriverManager
+
+# Inicializar subsistema de joystick de pygame
+pygame.init()
+pygame.joystick.init()
+
+KNOWN_VENDORS = {
+    "045E": "Microsoft Corporation",
+    "054C": "Sony Interactive Entertainment",
+    "057E": "Nintendo Co., Ltd.",
+    "046D": "Logitech",
+    "1532": "Razer Inc.",
+    "2DC8": "8BitDo",
+    "0E6F": "PDP (Performance Designed Products)",
+    "11C0": "Generic USB / DragonRise",
+    "0810": "Twin USB Gamepad / Personal Comm.",
+    "0079": "DragonRise Inc."
+}
+
+def _get_present_pnp_device_instance_paths() -> List[str]:
+    """Obtiene la lista de rutas de instancia de dispositivos PnP actualmente presentes en Windows."""
+    try:
+        cfgmgr32 = ctypes.windll.cfgmgr32
+        buf_len = ctypes.c_ulong()
+        if cfgmgr32.CM_Get_Device_ID_List_SizeW(ctypes.byref(buf_len), None, 0) != 0:
+            return []
+        buf = ctypes.create_unicode_buffer(buf_len.value)
+        if cfgmgr32.CM_Get_Device_ID_ListW(None, buf, buf_len.value, 0) != 0:
+            return []
+
+        all_paths = []
+        cur = ""
+        for c in buf:
+            if c == "\x00":
+                if cur:
+                    all_paths.append(cur)
+                    cur = ""
+            else:
+                cur += c
+
+        # Filtrar únicamente los presentes
+        present = []
+        dev_inst = ctypes.c_ulong()
+        for p in all_paths:
+            # 0 = CM_LOCATE_DEVNODE_NORMAL (sólo dispositivos físicamente presentes)
+            if cfgmgr32.CM_Locate_DevNodeW(ctypes.byref(dev_inst), p, 0) == 0:
+                present.append(p)
+        return present
+    except Exception:
+        return []
+
+class DeviceManager:
+    def __init__(self, driver_manager: Optional[DriverManager] = None):
+        self.driver_manager = driver_manager or DriverManager()
+        self.joysticks: Dict[int, pygame.joystick.Joystick] = {}
+        self._cancel_capture = False
+        self._physical_map: Dict[str, int] = {}  # Mapea 'joy_0', 'joy_1' al índice SDL real
+        self.refresh_devices()
+
+    def set_excluded_virtual_indices(self, indices):
+        """Compatibilidad con versiones anteriores."""
+        pass
+
+    def cancel_capture(self):
+        """Cancela inmediatamente cualquier proceso de captura en curso."""
+        self._cancel_capture = True
+
+    def _is_virtual_gamepad(self, joy: pygame.joystick.Joystick) -> bool:
+        """Determina si un joystick es un mando virtual creado por ViGEmBus."""
+        try:
+            name = joy.get_name().strip()
+            guid = joy.get_guid()
+            vid = "0000"
+            pid = "0000"
+            if len(guid) >= 20:
+                vid = (guid[10:12] + guid[8:10]).upper()
+                pid = (guid[18:20] + guid[16:18]).upper()
+
+            # ViGEmBus emula exactamente 'Xbox 360 Controller' con VID 045E y PID 028E
+            # y en SDL el GUID común es 0300b9695e0400008e02000000007200
+            if vid == "045E" and pid == "028E" and name == "Xbox 360 Controller":
+                return True
+        except Exception:
+            pass
+        return False
+
+    def refresh_devices(self) -> List[Dict[str, Any]]:
+        """Re-escanea los joysticks fisicos conectados por USB o Bluetooth, excluyendo virtuales."""
+        try:
+            pygame.joystick.quit()
+            pygame.joystick.init()
+        except Exception:
+            pass
+
+        self.joysticks.clear()
+        self._physical_map.clear()
+
+        device_list = [
+            {
+                "id": "none",
+                "name": "-- Ninguno / Desconectado --",
+                "type": "none",
+                "vendor_name": "",
+                "product_name": "Ninguno",
+                "instance_id": "00000000",
+                "conn_type": "N/A"
+            },
+            {
+                "id": "keyboard",
+                "name": "Teclado (Mapeo de Teclas)",
+                "type": "keyboard",
+                "vendor_name": "(Dispositivos de sistema estándar)",
+                "product_name": "Teclado del Sistema",
+                "instance_id": "6F1D2B61",
+                "conn_type": "SYS"
+            },
+            {
+                "id": "mouse",
+                "name": "Mouse (Puntero / Botones)",
+                "type": "mouse",
+                "vendor_name": "(Dispositivos de sistema estándar)",
+                "product_name": "Mouse del Sistema",
+                "instance_id": "6F1D2B60",
+                "conn_type": "SYS"
+            }
+        ]
+
+        count = pygame.joystick.get_count()
+        phys_idx = 0
+
+        # Obtener rutas de instancia presentes e información de HidHide
+        present_pnp_paths = _get_present_pnp_device_instance_paths()
+        hidden_paths = self.driver_manager.get_hidden_device_paths()
+
+        for i in range(count):
+            try:
+                joy = pygame.joystick.Joystick(i)
+                joy.init()
+
+                # Si es un mando virtual de ViGEmBus, lo ignoramos totalmente
+                if self._is_virtual_gamepad(joy):
+                    joy.quit()
+                    continue
+
+                self.joysticks[i] = joy
+                dev_id = f"joy_{phys_idx}"
+                self._physical_map[dev_id] = i
+
+                name = joy.get_name().strip()
+                guid = joy.get_guid()
+                num_buttons = joy.get_numbuttons()
+                num_axes = joy.get_numaxes()
+                num_hats = joy.get_numhats()
+
+                # Extraer VID y PID a partir del GUID de SDL (Windows little-endian)
+                vid = "0000"
+                pid = "0000"
+                if len(guid) >= 20:
+                    vid = (guid[10:12] + guid[8:10]).upper()
+                    pid = (guid[18:20] + guid[16:18]).upper()
+
+                vendor_name = KNOWN_VENDORS.get(vid, "(Dispositivos de sistema estándar)")
+
+                # Determinar tipo de conexion estimada (Bluetooth vs USB)
+                conn_type = "USB"
+                if "bluetooth" in name.lower() or "wireless" in name.lower() or "bth" in guid.lower():
+                    conn_type = "BT"
+
+                # Instance ID determinista de 8 caracteres en hexadecimal tipo x360ce
+                raw_hash = hash(f"{guid}_{name}") & 0xFFFFFFFF
+                instance_id = f"{raw_hash:08X}"
+
+                # Correlacionar con la ruta de instancia PnP de Windows para HidHide
+                instance_path = ""
+                for p in present_pnp_paths:
+                    up = p.upper()
+                    if vid != "0000" and pid != "0000" and vid in up and pid in up:
+                        # Priorizar rutas directas HID o USB
+                        if up.startswith("HID\\") or up.startswith("USB\\"):
+                            instance_path = p
+                            break
+                        elif not instance_path:
+                            instance_path = p
+
+                is_hidden = False
+                if instance_path:
+                    is_hidden = instance_path.upper() in hidden_paths
+
+                dev_info = {
+                    "id": dev_id,
+                    "sdl_index": i,
+                    "guid": guid,
+                    "vid": vid,
+                    "pid": pid,
+                    "vendor_name": vendor_name,
+                    "product_name": name,
+                    "conn_type": conn_type,
+                    "instance_id": instance_id,
+                    "instance_path": instance_path,
+                    "is_hidden": is_hidden,
+                    "name": f"Joystick {phys_idx}: {name} ({num_buttons}B / {num_axes}A / {num_hats}H)",
+                    "type": "joystick",
+                    "num_buttons": num_buttons,
+                    "num_axes": num_axes,
+                    "num_hats": num_hats
+                }
+                device_list.append(dev_info)
+                phys_idx += 1
+            except Exception as e:
+                print(f"[!] Error inicializando joystick {i}: {e}")
+
+        return device_list
+
+    def get_joystick(self, dev_id_or_idx) -> Optional[pygame.joystick.Joystick]:
+        """Obtiene el joystick por dev_id ('joy_0') o por índice SDL numérico."""
+        if isinstance(dev_id_or_idx, str):
+            if dev_id_or_idx in self._physical_map:
+                sdl_idx = self._physical_map[dev_id_or_idx]
+                return self.joysticks.get(sdl_idx)
+            try:
+                sdl_idx = int(dev_id_or_idx.split("_")[1])
+            except Exception:
+                return None
+        else:
+            sdl_idx = dev_id_or_idx
+
+        if sdl_idx not in self.joysticks:
+            if 0 <= sdl_idx < pygame.joystick.get_count():
+                try:
+                    joy = pygame.joystick.Joystick(sdl_idx)
+                    joy.init()
+                    self.joysticks[sdl_idx] = joy
+                except Exception:
+                    return None
+        return self.joysticks.get(sdl_idx)
+
+    def pump_events(self):
+        """Actualiza el estado interno de eventos de pygame."""
+        try:
+            pygame.event.pump()
+        except Exception:
+            pass
+
+    def read_physical_state(self, dev_id: str) -> Dict[str, Any]:
+        """Lee el estado crudo actual de botones, ejes y cruceta de un dispositivo."""
+        self.pump_events()
+        state = {
+            "buttons": {},
+            "axes": {},
+            "hats": {}
+        }
+
+        if dev_id.startswith("joy_"):
+            try:
+                joy = self.get_joystick(dev_id)
+                if joy and joy.get_init():
+                    for b in range(joy.get_numbuttons()):
+                        state["buttons"][b] = bool(joy.get_button(b))
+                    for a in range(joy.get_numaxes()):
+                        state["axes"][a] = float(joy.get_axis(a))
+                    for h in range(joy.get_numhats()):
+                        state["hats"][h] = joy.get_hat(h)  # (x, y)
+            except Exception:
+                pass
+
+        return state
+
+    def capture_input(self, dev_id: str, timeout: float = 4.0) -> Optional[str]:
+        """
+        Escucha el proximo movimiento de boton, eje o cruceta en el dispositivo fisico indicado.
+        Retorna la etiqueta del mapeo detectado (ej: 'Button 1', 'Axis 1+', 'POV 1 Up', etc.).
+        """
+        if dev_id == "none":
+            return None
+
+        self._cancel_capture = False
+        self.pump_events()
+        time.sleep(0.04)
+        self.pump_events()
+
+        start_time = time.time()
+
+        # Guardar linea base de botones, hats y ejes para detectar movimiento relativo
+        baseline_axes = {}
+        baseline_buttons = set()
+        baseline_hats = {}
+
+        if dev_id.startswith("joy_"):
+            try:
+                joy = self.get_joystick(dev_id)
+                if joy and joy.get_init():
+                    for a in range(joy.get_numaxes()):
+                        baseline_axes[a] = joy.get_axis(a)
+                    for b in range(joy.get_numbuttons()):
+                        if joy.get_button(b):
+                            baseline_buttons.add(b)
+                    for h in range(joy.get_numhats()):
+                        baseline_hats[h] = joy.get_hat(h)
+            except Exception:
+                pass
+
+        while time.time() - start_time < timeout:
+            if self._cancel_capture:
+                return None
+            self.pump_events()
+
+            if dev_id.startswith("joy_"):
+                try:
+                    joy = self.get_joystick(dev_id)
+                    if not joy or not joy.get_init():
+                        time.sleep(0.05)
+                        continue
+
+                    # 1. Chequear botones fisicos (prioridad absoluta para bumpers/botones)
+                    for b in range(joy.get_numbuttons()):
+                        if joy.get_button(b) and b not in baseline_buttons:
+                            return f"Button {b + 1}"
+
+                    # 2. Chequear Hats (POV / D-Pad)
+                    for h in range(joy.get_numhats()):
+                        hx, hy = joy.get_hat(h)
+                        if (hx, hy) != (0, 0) and (hx, hy) != baseline_hats.get(h, (0, 0)):
+                            if hy > 0:
+                                return f"POV {h + 1} Up"
+                            elif hy < 0:
+                                return f"POV {h + 1} Down"
+                            elif hx < 0:
+                                return f"POV {h + 1} Left"
+                            elif hx > 0:
+                                return f"POV {h + 1} Right"
+
+                    # 3. Chequear Ejes (SOLO por desplazamiento relativo real > 0.55 respecto al reposo)
+                    for a in range(joy.get_numaxes()):
+                        curr = joy.get_axis(a)
+                        prev = baseline_axes.get(a, 0.0)
+                        diff = curr - prev
+                        if abs(diff) > 0.55:
+                            # Si el eje reposaba en negativo (-1.0 aprox, ej: gatillos) y se jala a positivo
+                            if prev < -0.6 and curr > -0.2:
+                                return f"Axis {a + 1}+"
+                            elif prev > 0.6 and curr < 0.2:
+                                return f"Axis {a + 1}-"
+                            elif diff > 0:
+                                return f"Axis {a + 1}"
+                            else:
+                                return f"IAxis {a + 1}"
+
+                except Exception:
+                    pass
+
+            time.sleep(0.03)
+
+        return None

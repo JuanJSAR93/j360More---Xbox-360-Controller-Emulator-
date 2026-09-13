@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>j360More | Multi-Gamepad Xbox 360 Emulator by JuanJSAR</title>
+  
+  <!-- Meta SEO & Social Sharing -->
+  <meta name="description" content="Emula hasta 12 mandos virtuales de Xbox 360 en Windows a 120Hz con baja latencia. Creado por JuanJSAR. Compatible con DirectInput, palancas arcade y teclado.">
+  <meta name="keywords" content="Xbox 360 emulator, JuanJSAR, ViGEmBus, HidHide, Gamepad emulator, XInput, DirectInput to XInput, 12 players PC gaming, j360More">
+  <meta name="author" content="JuanJSAR">
+  <meta property="og:title" content="j360More - Multi-Gamepad Xbox 360 Virtual Emulator by JuanJSAR">
+  <meta property="og:description" content="Transforma cualquier mando o teclado en un mando oficial de Xbox 360. De 1 a 12 jugadores simultáneos con ViGEmBus y filtro HidHide. Desarrollado por JuanJSAR.">
+  <meta property="og:image" content="assets/controller_render.png">
+  <meta property="og:type" content="website">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+  <link rel="alternate icon" type="image/png" href="assets/icon.png">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ==================== Header / Navbar ==================== -->
+  <header class="header">
+    <div class="nav-container">
+      <a href="#" class="logo">
+        <img src="assets/icon.svg" alt="j360More Logo">
+        <span>j360More</span>
+      </a>
+
+      <button class="menu-toggle" aria-label="Abrir menú">☰</button>
+
+      <ul class="nav-links">
+        <li><a href="#cualidades" data-i18n="nav_features">Cualidades</a></li>
+        <li><a href="#controladores" data-i18n="nav_drivers">Controladores</a></li>
+        <li><a href="#requisitos" data-i18n="nav_requirements">Requisitos</a></li>
+        <li><a href="#inicio-rapido" data-i18n="nav_quickstart">Guía Rápida</a></li>
+        <li><a href="#faq" data-i18n="nav_faq">Preguntas</a></li>
+        
+        <!-- Language Switcher -->
+        <li class="lang-switch-wrapper">
+          <button id="lang-btn-es" class="lang-btn active" title="Cambiar a Español">ES</button>
+          <span class="lang-divider">|</span>
+          <button id="lang-btn-en" class="lang-btn" title="Switch to English">EN</button>
+        </li>
+
+        <!-- GitHub Release Download -->
+        <li>
+          <a href="https://github.com/JuanJSAR93/j360More---Xbox-360-Controller-Emulator-/releases" target="_blank" rel="noopener noreferrer" class="btn-nav" data-i18n="nav_download">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span>Descargar</span>
+          </a>
+        </li>
+
+        <!-- GitHub Repo -->
+        <li>
+          <a href="https://github.com/JuanJSAR93/j360More---Xbox-360-Controller-Emulator-.git" target="_blank" rel="noopener noreferrer" class="btn-nav">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+            </svg>
+            GitHub
+          </a>
+        </li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- ==================== Hero Section ==================== -->
+  <section class="hero">
+    <div class="hero-content">
+      <div class="badge-wrapper">
+        <span class="badge badge-primary" data-i18n="hero_badge_players">🎮 Hasta 12 Mandos Simultáneos</span>
+        <span class="badge badge-secondary" data-i18n="hero_badge_hz">⚡ Ultra Baja Latencia 120Hz</span>
+        <span class="badge badge-author" style="background: rgba(188,140,255,0.15); border: 1px solid rgba(188,140,255,0.4); color: #bc8cff;" data-i18n="hero_badge_author">👨‍💻 Creado por JuanJSAR</span>
+      </div>
+
+      <h1 class="hero-title">
+        Multi-Gamepad <br>
+        <span class="gradient-text">Xbox 360 Emulator</span>
+      </h1>
+
+      <p class="hero-subtitle" data-i18n="hero_subtitle">
+        Convierte cualquier control genérico USB, mando de PlayStation, palanca arcade o teclado en mandos oficiales de Xbox 360 (XInput) con precisión milimétrica y compatibilidad total en PC. Desarrollado por JuanJSAR.
+      </p>
+
+      <div class="hero-actions">
+        <a href="https://github.com/JuanJSAR93/j360More---Xbox-360-Controller-Emulator-/releases" target="_blank" rel="noopener noreferrer" class="btn btn-primary" data-i18n="hero_btn_releases">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Descargar j360More
+        </a>
+        <a href="#controladores" class="btn btn-outline" data-i18n="hero_btn_drivers">Ver Drivers Necesarios</a>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="controller-preview-card">
+        <img src="assets/controller_render.png" alt="Mando Xbox 360 Virtual">
+        <div class="controller-tag" data-i18n="hero_controller_tag">Mapeo Interactivo en Tiempo Real</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== Stats Bar ==================== -->
+  <section class="stats-bar">
+    <div class="stats-grid">
+      <div class="stat-item">
+        <h3>1 - 12</h3>
+        <p data-i18n="stat_controllers">Mandos Virtuales Simultáneos</p>
+      </div>
+      <div class="stat-item">
+        <h3>120 Hz</h3>
+        <p data-i18n="stat_refreshrate">Tasa de Refresco y Despacho</p>
+      </div>
+      <div class="stat-item">
+        <h3>&lt; 1 ms</h3>
+        <p data-i18n="stat_latency">Latencia de Procesamiento</p>
+      </div>
+      <div class="stat-item">
+        <h3>100%</h3>
+        <p data-i18n="stat_compatibility">Compatible con Juegos XInput</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== Cualidades y Funcionalidades ==================== -->
+  <section id="cualidades" class="section">
+    <div class="section-header">
+      <span class="section-tag" data-i18n="feat_tag">Características Principales</span>
+      <h2 class="section-title" data-i18n="feat_title">Diseñado para la Mejor Experiencia Multijugador</h2>
+      <p class="section-desc" data-i18n="feat_subtitle">
+        Desarrollado por JuanJSAR para jugadores de PC, emuladores y salones arcade que necesitan conectar múltiples mandos sin conflictos de detección.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <!-- Feature 1 -->
+      <div class="feature-card">
+        <div class="feature-icon">🎮</div>
+        <h3 data-i18n="f1_title">1 a 12 Jugadores Locales</h3>
+        <p data-i18n="f1_desc">
+          Rompe el límite clásico de 4 mandos. j360More permite crear de 1 hasta 12 slots independientes de Xbox 360, ideal para títulos multijugador masivos como Party Animals, Gang Beasts, emuladores y arcades.
+        </p>
+      </div>
+
+      <!-- Feature 2 -->
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3 data-i18n="f2_title">Motor de 120Hz de Ultra Baja Latencia</h3>
+        <p data-i18n="f2_desc">
+          Hilo de ejecución dedicado que muestrea los eventos de palancas, botones y gatillos a 120 ciclos por segundo con respuesta inmediata sin input lag perceptible.
+        </p>
+      </div>
+
+      <!-- Feature 3 -->
+      <div class="feature-card">
+        <div class="feature-icon">🎯</div>
+        <h3 data-i18n="f3_title">Calibración Analógica Milimétrica</h3>
+        <p data-i18n="f3_desc">
+          Ajuste fino de zonas muertas (deadzone), anti-deadzone para sticks con deriva o desgaste, curvas de sensibilidad dinámica y reversión de ejes X/Y para sticks y gatillos.
+        </p>
+      </div>
+
+      <!-- Feature 4 -->
+      <div class="feature-card">
+        <div class="feature-icon">🛡️</div>
+        <h3 data-i18n="f4_title">Filtro Selectivo con HidHide</h3>
+        <p data-i18n="f4_desc">
+          Oculta periféricos DirectInput físicos a nivel de driver para que los juegos solo detecten el mando emulado, eliminando para siempre el "doble control" en FIFA, Rocket League y emuladores.
+        </p>
+      </div>
+
+      <!-- Feature 5 -->
+      <div class="feature-card">
+        <div class="feature-icon">🔌</div>
+        <h3 data-i18n="f5_title">Detección Plug & Play en Caliente</h3>
+        <p data-i18n="f5_desc">
+          Reconexión automática de gamepads en caliente mediante SDL2. Si desconectas o reconectas un mando en mitad de la partida, j360More lo recupera al instante sin reiniciar.
+        </p>
+      </div>
+
+      <!-- Feature 6 -->
+      <div class="feature-card">
+        <div class="feature-icon">💾</div>
+        <h3 data-i18n="f6_title">Guardado Persistente en JSON</h3>
+        <p data-i18n="f6_desc">
+          Todas tus asignaciones de botones, dispositivos y calibraciones se guardan de forma limpia en <code>config_mapping.json</code> para transferir o respaldar en cualquier equipo.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== Controladores Esenciales (ViGEmBus & HidHide) ==================== -->
+  <section id="controladores" class="drivers-section">
+    <div class="drivers-container">
+      <div class="section-header">
+        <span class="section-tag" data-i18n="drivers_tag">Drivers Indispensables</span>
+        <h2 class="section-title" data-i18n="drivers_title">Controladores del Sistema Necesarios</h2>
+        <p class="section-desc" data-i18n="drivers_subtitle">
+          Para lograr una emulación 100% nativa a nivel de kernel en Windows sin requerir programas pesados, j360More se apoya en los controladores de referencia de la comunidad.
+        </p>
+      </div>
+
+      <div class="drivers-grid">
+        <!-- ViGEmBus Card (OBLIGATORIO) -->
+        <div class="driver-card mandatory">
+          <div>
+            <div class="driver-header">
+              <div>
+                <h3 class="driver-title">ViGEmBus</h3>
+                <span class="driver-author">Por Benjamin Höglinger-Stelzer (Nefarius)</span>
+              </div>
+              <span class="driver-badge-tag obligatory" data-i18n="driver_vigem_tag">Obligatorio</span>
+            </div>
+
+            <div class="driver-body">
+              <p class="driver-desc" data-i18n="driver_vigem_desc">
+                El <strong>Virtual Gamepad Emulation Bus</strong> es un driver de nivel de sistema (kernel-mode) que permite a Windows generar y conectar mandos virtuales de Xbox 360 y DualShock 4 idénticos a los mandos físicos oficiales.
+              </p>
+
+              <div class="driver-purpose-box vigem">
+                <h4 data-i18n="driver_vigem_why_title">¿Para qué se utiliza en j360More?</h4>
+                <p data-i18n="driver_vigem_why_desc">
+                  Es el <strong>motor central de emulación</strong>. Sin ViGEmBus, la aplicación no puede crear los mandos virtuales en Windows. Se encarga de que cualquier juego de Steam, Xbox Game Pass o emulador reconozca los controles como mandos oficiales de Xbox 360 (XInput).
+                </p>
+              </div>
+
+              <ul class="driver-bullets">
+                <li data-i18n="driver_vigem_b1">Emulación nativa de 1 a 12 slots XInput en Windows.</li>
+                <li data-i18n="driver_vigem_b2">Compatibilidad total con gatillos analógicos y vibración.</li>
+                <li data-i18n="driver_vigem_b3">Firmado digitalmente para máxima estabilidad en Windows 10 y 11.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="driver-footer">
+            <a href="https://github.com/nefarius/ViGEmBus/releases" target="_blank" rel="noopener noreferrer" class="btn-driver-download vigem" data-i18n="driver_vigem_btn">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+              Descargar ViGEmBus (GitHub Releases)
+            </a>
+          </div>
+        </div>
+
+        <!-- HidHide Card (RECOMENDADO / OPCIONAL) -->
+        <div class="driver-card recommended">
+          <div>
+            <div class="driver-header">
+              <div>
+                <h3 class="driver-title">HidHide</h3>
+                <span class="driver-author">Por Benjamin Höglinger-Stelzer (Nefarius)</span>
+              </div>
+              <span class="driver-badge-tag optional" data-i18n="driver_hidhide_tag">Recomendado (Opcional)</span>
+            </div>
+
+            <div class="driver-body">
+              <p class="driver-desc" data-i18n="driver_hidhide_desc">
+                Un controlador de filtro de dispositivos HID que permite <strong>ocultar de forma selectiva periféricos de juego reales</strong> a todas las aplicaciones del sistema, excepto a los procesos que estén expresamente autorizados (como j360More).
+              </p>
+
+              <div class="driver-purpose-box hidhide">
+                <h4 data-i18n="driver_hidhide_why_title">¿Para qué se utiliza en j360More?</h4>
+                <p data-i18n="driver_hidhide_why_desc">
+                  Resuelve el clásico y molesto <strong>problema del "doble mando"</strong> (double-input). Cuando conectas un control genérico o de PS4/PS5, muchos juegos detectan al mismo tiempo el mando físico y el mando virtual emulado, duplicando las pulsaciones. HidHide oculta el mando físico a los juegos dejando visible solo el mando Xbox 360 emulado.
+                </p>
+              </div>
+
+              <ul class="driver-bullets">
+                <li data-i18n="driver_hidhide_b1">Previene duplicación de botones y saltos dobles en menús.</li>
+                <li data-i18n="driver_hidhide_b2">Selección individual de qué periféricos ocultar desde la UI de j360More.</li>
+                <li data-i18n="driver_hidhide_b3">Totalmente opcional: j360More funciona sin él si tus juegos no sufren de doble entrada.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="driver-footer">
+            <a href="https://github.com/nefarius/HidHide/releases/" target="_blank" rel="noopener noreferrer" class="btn-driver-download hidhide" data-i18n="driver_hidhide_btn">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+              Descargar HidHide (GitHub Releases)
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Technical Specifications Table -->
+      <div id="requisitos" class="requirements-card">
+        <h3>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--xbox-neon)" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          <span data-i18n="req_table_title">Requisitos del Sistema</span>
+        </h3>
+
+        <table class="requirements-table">
+          <thead>
+            <tr>
+              <th data-i18n="req_col_component">Componente</th>
+              <th data-i18n="req_col_minimum">Requisito Mínimo</th>
+              <th data-i18n="req_col_recommended">Recomendado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-i18n="req_row_os">Sistema Operativo</td>
+              <td>Windows 10 (64-bit)</td>
+              <td data-i18n="req_row_os_val">Windows 11 (64-bit) actualizado</td>
+            </tr>
+            <tr>
+              <td data-i18n="req_row_vigem">Driver ViGEmBus</td>
+              <td>ViGEmBus v1.17+</td>
+              <td data-i18n="req_row_vigem_val">Última versión oficial estable</td>
+            </tr>
+            <tr>
+              <td data-i18n="req_row_hidhide">Driver HidHide</td>
+              <td data-i18n="req_row_hidhide_val1">Opcional (No requerido para arrancar)</td>
+              <td data-i18n="req_row_hidhide_val2">HidHide v1.2+ (Para evitar doble control)</td>
+            </tr>
+            <tr>
+              <td data-i18n="req_row_inputs">Periféricos de Entrada</td>
+              <td data-i18n="req_row_inputs_val1">Cualquier Gamepad USB / Bluetooth / Teclado</td>
+              <td data-i18n="req_row_inputs_val2">Gamepads compatibles con DirectInput o estándar</td>
+            </tr>
+            <tr>
+              <td data-i18n="req_row_runtime">Formato del Programa</td>
+              <td data-i18n="req_row_runtime_val1">Ejecutable standalone sin dependencias</td>
+              <td data-i18n="req_row_runtime_val2">Modo portátil directo (41 MB)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== Guía de Inicio Rápido ==================== -->
+  <section id="inicio-rapido" class="section">
+    <div class="section-header">
+      <span class="section-tag" data-i18n="quick_tag">Paso a Paso</span>
+      <h2 class="section-title" data-i18n="quick_title">Comienza a Jugar en Menos de 2 Minutos</h2>
+      <p class="section-desc" data-i18n="quick_subtitle">Sigue estos sencillos pasos para tener tus mandos listos.</p>
+    </div>
+
+    <div class="steps-container">
+      <div class="step-card">
+        <div class="step-number">01</div>
+        <h3 data-i18n="q1_title">Instala ViGEmBus</h3>
+        <p data-i18n="q1_desc">Descarga e instala el instalador oficial de ViGEmBus. Solo necesitas hacerlo una sola vez en tu equipo.</p>
+      </div>
+
+      <div class="step-card">
+        <div class="step-number">02</div>
+        <h3 data-i18n="q2_title">Ejecuta j360More</h3>
+        <p data-i18n="q2_desc">Abre el ejecutable <code>j360More.exe</code>. El programa detectará tus drivers y mandos conectados automáticamente.</p>
+      </div>
+
+      <div class="step-card">
+        <div class="step-number">03</div>
+        <h3 data-i18n="q3_title">Asigna tus Mandos</h3>
+        <p data-i18n="q3_desc">En las pestañas "Mando 1" al "Mando 12", selecciona qué dispositivo físico controlará cada ranura virtual de Xbox 360.</p>
+      </div>
+
+      <div class="step-card">
+        <div class="step-number">04</div>
+        <h3 data-i18n="q4_title">¡Inicia y Juega!</h3>
+        <p data-i18n="q4_desc">Pulsa "Iniciar Emulación". Windows creará inmediatamente los mandos virtuales y tus juegos responderán a la perfección.</p>
+      </div>
+    </div>
+
+    <!-- Quick Compilation Box -->
+    <div style="margin-top: 3rem; text-align: center;">
+      <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem;" data-i18n="code_title">¿Deseas compilar el código tú mismo?</h3>
+      <p style="color: var(--text-secondary); font-size: 0.95rem;" data-i18n="code_subtitle">Puedes clonar el repositorio y ejecutar el compilador oficial de un solo clic:</p>
+      <div class="code-box" style="max-width: 600px; margin: 1rem auto;">
+        <span>build.bat</span>
+        <button class="copy-btn" data-code="build.bat" data-i18n="copy_btn">Copiar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== Preguntas Frecuentes (FAQ) ==================== -->
+  <section id="faq" class="section">
+    <div class="section-header">
+      <span class="section-tag" data-i18n="faq_tag">Dudas Habituales</span>
+      <h2 class="section-title" data-i18n="faq_title">Preguntas Frecuentes</h2>
+    </div>
+
+    <div class="faq-grid">
+      <div class="faq-item">
+        <div class="faq-question" data-i18n="faq_q1">¿Por qué es obligatorio instalar ViGEmBus?</div>
+        <div class="faq-answer" data-i18n="faq_a1">
+          Windows no permite crear dispositivos de control virtual sin un driver de kernel firmado. ViGEmBus es el estándar de oro de código abierto que actúa como puente para crear mandos virtuales Xbox 360 totalmente indistinguibles de un mando oficial con cable.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question" data-i18n="faq_q2">¿Qué pasa si no tengo instalado HidHide?</div>
+        <div class="faq-answer" data-i18n="faq_a2">
+          j360More funcionará perfectamente. HidHide solo es necesario si notas que tu juego recibe órdenes dobles al presionar un botón (porque detecta al mismo tiempo tu mando genérico y el mando emulado). Si tu juego solo lee XInput, ni siquiera notarás la diferencia.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question" data-i18n="faq_q3">¿Puedo usar teclado para jugar como un mando de Xbox?</div>
+        <div class="faq-answer" data-i18n="faq_a3">
+          Sí. En la asignación de dispositivo puedes seleccionar "Teclado" y mapear las teclas que prefieras (WASD para sticks, teclas para botones A/B/X/Y, etc.).
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-question" data-i18n="faq_q4">¿Cómo soluciono sticks con deriva (drift)?</div>
+        <div class="faq-answer" data-i18n="faq_a4">
+          j360More incluye calibración analógica avanzada. En la pestaña de calibración puedes aumentar la "Zona Muerta (Deadzone)" en un porcentaje para que los movimientos no deseados del stick sean completamente ignorados.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== Call to Action Banner ==================== -->
+  <div class="cta-banner">
+    <h2 data-i18n="cta_title">¡Lleva el Multijugador en PC al Siguiente Nivel!</h2>
+    <p data-i18n="cta_desc">
+      Descarga la última versión de j360More desarrollada por JuanJSAR y disfruta de partidas locales con amigos sin complicaciones.
+    </p>
+    <a href="https://github.com/JuanJSAR93/j360More---Xbox-360-Controller-Emulator-/releases" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="font-size: 1.1rem; padding: 1rem 2.25rem;" data-i18n="cta_btn">
+      Descargar Última Versión en GitHub
+    </a>
+  </div>
+
+  <!-- ==================== Footer ==================== -->
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-brand">
+        <h4>
+          <img src="assets/icon.svg" alt="j360More Icon" width="24" height="24">
+          j360More
+        </h4>
+        <p data-i18n="footer_desc">
+          Emulador de mandos virtuales Xbox 360 para Windows. Diseñado y desarrollado por <strong>JuanJSAR</strong> para ofrecer la máxima velocidad, estabilidad y flexibilidad en entornos multijugador de 1 a 12 participantes.
+        </p>
+      </div>
+
+      <div class="footer-col">
+        <h5 data-i18n="footer_drivers_title">Controladores</h5>
+        <ul>
+          <li><a href="https://github.com/nefarius/ViGEmBus/releases" target="_blank" rel="noopener">ViGEmBus Releases</a></li>
+          <li><a href="https://github.com/nefarius/HidHide/releases/" target="_blank" rel="noopener">HidHide Releases</a></li>
+          <li><a href="https://nefarius.at/" target="_blank" rel="noopener">Nefarius Software</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h5 data-i18n="footer_links_title">Enlaces y Proyecto</h5>
+        <ul>
+          <li><a href="https://github.com/JuanJSAR93/j360More---Xbox-360-Controller-Emulator-/releases" target="_blank" rel="noopener" data-i18n="footer_releases">Descargas / Releases</a></li>
+          <li><a href="https://github.com/JuanJSAR93/j360More---Xbox-360-Controller-Emulator-.git" target="_blank" rel="noopener">Repositorio GitHub</a></li>
+          <li><a href="#cualidades" data-i18n="nav_features">Cualidades</a></li>
+          <li><a href="#requisitos" data-i18n="nav_requirements">Requisitos</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <div>&copy; 2026 <strong>j360More</strong>. Desarrollado por <strong>JuanJSAR</strong>. Código abierto bajo licencia MIT.</div>
+      <div>Desarrollado con ViGEmBus & SDL2.</div>
+    </div>
+  </footer>
+
+  <!-- Script with i18n support -->
+  <script src="script.js"></script>
+</body>
+</html>

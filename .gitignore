@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Backups and archives
+*.7z
+*.zip
+*.bak
+
+# Virtual environments
+.venv/
+env/
+venv/

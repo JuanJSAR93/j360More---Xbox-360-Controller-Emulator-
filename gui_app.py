@@ -1,0 +1,2136 @@
+import os
+import sys
+import json
+import time
+import math
+import io
+import threading
+import subprocess
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
+from PIL import Image, ImageTk
+
+try:
+    import resvg_py
+except ImportError:
+    resvg_py = None
+
+from driver_manager import DriverManager
+from input_devices import DeviceManager
+from emulator_engine import EmulatorEngine, apply_axis_calibration, apply_trigger_calibration
+from i18n import get_text, get_target_name
+
+if getattr(sys, "frozen", False):
+    EXE_DIR = os.path.dirname(sys.executable)
+    BUNDLE_DIR = getattr(sys, "_MEIPASS", EXE_DIR)
+    CONFIG_FILE = os.path.join(EXE_DIR, "config_mapping.json")
+    ASSETS_DIR = os.path.join(BUNDLE_DIR, "assets") if os.path.exists(os.path.join(BUNDLE_DIR, "assets")) else os.path.join(EXE_DIR, "assets")
+else:
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+    CONFIG_FILE = os.path.join(SCRIPT_DIR, "config_mapping.json")
+    ASSETS_DIR = os.path.join(SCRIPT_DIR, "assets")
+
+CONTROLLER_SVG_PATH = os.path.join(ASSETS_DIR, "controller.svg")
+CONTROLLER_CACHE_PNG = os.path.join(ASSETS_DIR, "controller_render.png")
+CONTROLLER_PNG_FALLBACK = os.path.join(ASSETS_DIR, "controller.png")
+ICON_SVG_PATH = os.path.join(ASSETS_DIR, "icon.svg")
+ICON_PNG_PATH = os.path.join(ASSETS_DIR, "icon.png")
+ICON_ICO_PATH = os.path.join(ASSETS_DIR, "icon.ico")
+
+INPUT_OPTIONS = [
+    "-- Ninguno --",
+    "Button 1", "Button 2", "Button 3", "Button 4",
+    "Button 5", "Button 6", "Button 7", "Button 8",
+    "Button 9", "Button 10", "Button 11", "Button 12",
+    "Button 13", "Button 14", "Button 15", "Button 16",
+    "Axis 1", "IAxis 1", "Axis 2", "IAxis 2",
+    "Axis 3", "IAxis 3", "Axis 4", "IAxis 4",
+    "Axis 5", "IAxis 5", "Axis 6", "IAxis 6",
+    "POV 1 Up", "POV 1 Down", "POV 1 Left", "POV 1 Right",
+    "Tecla: w", "Tecla: s", "Tecla: a", "Tecla: d",
+    "Tecla: j", "Tecla: k", "Tecla: u", "Tecla: i",
+    "Tecla: q", "Tecla: e", "Tecla: space", "Tecla: enter",
+    "Tecla: up", "Tecla: down", "Tecla: left", "Tecla: right"
+]
+
+# Coordenadas relativas en el canvas para la imagen renderizada a 350x275
+HITBOXES = {
+    "A": (287.6, 154.9, 16.0),
+    "B": (311.5, 129.4, 16.0),
+    "X": (259.1, 129.4, 16.0),
+    "Y": (287.6, 105.5, 16.0),
+    "GUIDE": (176.5, 134.1, 22.0),
+    "BACK": (136.4, 136.8, 14.0),
+    "START": (214.9, 136.8, 14.0),
+    "LEFT_SHOULDER": (74.0, 64.8, 22.0),
+    "RIGHT_SHOULDER": (274.6, 64.8, 22.0),
+    "LEFT_TRIGGER": (81.8, 43.2, 18.0),
+    "RIGHT_TRIGGER": (268.4, 43.2, 18.0),
+}
+
+CANVAS_POINTS = {
+    "LEFT_TRIGGER": (81.8, 43.2, 14),
+    "LEFT_SHOULDER": (74.0, 64.8, 14),
+    "RIGHT_TRIGGER": (268.4, 43.2, 14),
+    "RIGHT_SHOULDER": (274.6, 64.8, 14),
+    "LEFT_STICK_UP": (63.9, 124.0, 7),
+    "LEFT_STICK_DOWN": (63.9, 156.4, 7),
+    "LEFT_STICK_LEFT": (47.9, 140.2, 7),
+    "LEFT_STICK_RIGHT": (79.9, 140.2, 7),
+    "LEFT_THUMB": (63.9, 140.2, 8),
+    "RIGHT_STICK_UP": (224.4, 173.4, 7),
+    "RIGHT_STICK_DOWN": (224.4, 205.8, 7),
+    "RIGHT_STICK_LEFT": (208.4, 189.6, 7),
+    "RIGHT_STICK_RIGHT": (240.4, 189.6, 7),
+    "RIGHT_THUMB": (224.4, 189.6, 8),
+    "DPAD_UP": (122.5, 175.0, 9),
+    "DPAD_DOWN": (122.5, 205.0, 9),
+    "DPAD_LEFT": (108.0, 189.6, 9),
+    "DPAD_RIGHT": (137.0, 189.6, 9),
+    "BACK": (136.4, 136.8, 9),
+    "GUIDE": (176.5, 134.1, 15),
+    "START": (214.9, 136.8, 9),
+    "A": (287.6, 154.9, 11),
+    "B": (311.5, 129.4, 11),
+    "X": (259.1, 129.4, 11),
+    "Y": (287.6, 105.5, 11),
+}
+
+def map_target_to_canvas_key(target: str) -> str:
+    """Convierte el nombre del destino del mapeo a la clave del componente visual en el canvas."""
+    if target == "LEFT_STICK_X":
+        return "LEFT_STICK_RIGHT"
+    if target == "LEFT_STICK_Y":
+        return "LEFT_STICK_UP"
+    if target == "RIGHT_STICK_X":
+        return "RIGHT_STICK_RIGHT"
+    if target == "RIGHT_STICK_Y":
+        return "RIGHT_STICK_UP"
+    return target
+
+TARGET_NAMES_ES = {
+    "A": "Botón A",
+    "B": "Botón B",
+    "X": "Botón X",
+    "Y": "Botón Y",
+    "GUIDE": "Botón Guía (Xbox)",
+    "BACK": "Botón Back / Selec",
+    "START": "Botón Start",
+    "LEFT_THUMB": "Stick Izq. Botón (L3)",
+    "RIGHT_THUMB": "Stick Der. Botón (R3)",
+    "LEFT_STICK_X": "Stick Izq. Eje X",
+    "LEFT_STICK_Y": "Stick Izq. Eje Y",
+    "LEFT_STICK_UP": "Stick Izq. Arriba",
+    "LEFT_STICK_DOWN": "Stick Izq. Abajo",
+    "LEFT_STICK_LEFT": "Stick Izq. Izquierda",
+    "LEFT_STICK_RIGHT": "Stick Izq. Derecha",
+    "RIGHT_STICK_X": "Stick Der. Eje X",
+    "RIGHT_STICK_Y": "Stick Der. Eje Y",
+    "RIGHT_STICK_UP": "Stick Der. Arriba",
+    "RIGHT_STICK_DOWN": "Stick Der. Abajo",
+    "RIGHT_STICK_LEFT": "Stick Der. Izquierda",
+    "RIGHT_STICK_RIGHT": "Stick Der. Derecha",
+    "DPAD_UP": "D-Pad Arriba",
+    "DPAD_DOWN": "D-Pad Abajo",
+    "DPAD_LEFT": "D-Pad Izquierda",
+    "DPAD_RIGHT": "D-Pad Derecha",
+    "LEFT_SHOULDER": "Bumper Izq. (LB)",
+    "RIGHT_SHOULDER": "Bumper Der. (RB)",
+    "LEFT_TRIGGER": "Gatillo Izq. (LT)",
+    "RIGHT_TRIGGER": "Gatillo Der. (RT)",
+}
+
+DEFAULT_MAPPINGS = {
+    "LEFT_TRIGGER": "Axis 3+",
+    "LEFT_SHOULDER": "Button 5",
+    "BACK": "Button 9",
+    "START": "Button 10",
+    "GUIDE": "-- Ninguno --",
+    "LEFT_STICK_X": "Axis 1",
+    "LEFT_STICK_Y": "Axis 2",
+    "LEFT_STICK_UP": "-- Ninguno --",
+    "LEFT_STICK_DOWN": "-- Ninguno --",
+    "LEFT_STICK_LEFT": "-- Ninguno --",
+    "LEFT_STICK_RIGHT": "-- Ninguno --",
+    "LEFT_THUMB": "Button 11",
+    "RIGHT_TRIGGER": "Axis 6+",
+    "RIGHT_SHOULDER": "Button 6",
+    "Y": "Button 4",
+    "X": "Button 1",
+    "B": "Button 3",
+    "A": "Button 2",
+    "RIGHT_STICK_X": "Axis 3",
+    "RIGHT_STICK_Y": "Axis 4",
+    "RIGHT_STICK_UP": "-- Ninguno --",
+    "RIGHT_STICK_DOWN": "-- Ninguno --",
+    "RIGHT_STICK_LEFT": "-- Ninguno --",
+    "RIGHT_STICK_RIGHT": "-- Ninguno --",
+    "RIGHT_THUMB": "Button 12",
+    "DPAD_UP": "POV 1 Up",
+    "DPAD_DOWN": "POV 1 Down",
+    "DPAD_LEFT": "POV 1 Left",
+    "DPAD_RIGHT": "POV 1 Right"
+}
+
+DEFAULT_CALIBRATION = {
+    "left_trigger": {"deadzone": 0, "anti_deadzone": 0, "sensitivity": 0, "invert": False},
+    "right_trigger": {"deadzone": 0, "anti_deadzone": 0, "sensitivity": 0, "invert": False},
+    "left_stick": {"deadzone": 8, "anti_deadzone": 0, "sensitivity": 0, "invert_x": False, "invert_y": False},
+    "right_stick": {"deadzone": 8, "anti_deadzone": 0, "sensitivity": 0, "invert_x": False, "invert_y": False}
+}
+
+class J360MoreApp:
+    def __init__(self, root: tk.Tk):
+        self.root = root
+        self.config = self.load_config()
+        self.root.title(self.t("app_title"))
+        self._setup_app_icon()
+
+        # Tamaño fijo compacto donde todo es visible
+        self.root.geometry("980x640")
+        self.root.resizable(False, False)
+
+        self.driver_manager = DriverManager(self.config)
+        self.device_manager = DeviceManager(self.driver_manager)
+        self.engine = EmulatorEngine(self.device_manager)
+        self.engine.set_config(self.config)
+
+        self.recording_target = None
+        self.available_devices = []
+        self.tab_frames = {}
+        self.tab_widgets = {}
+
+        self.style = ttk.Style()
+        try:
+            self.style.theme_use("vista")
+        except Exception:
+            pass
+
+        self._load_assets()
+        self._build_ui()
+        self._refresh_all_devices()
+
+        # Comprobar estado de drivers (ViGEmBus y aviso leve de HidHide)
+        self.root.after(200, self._check_system_drivers)
+
+        self.root.bind("<KeyPress>", self._on_key_press)
+        self.root.bind("<KeyRelease>", self._on_key_release)
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        self.root.after(30, self._update_loop)
+
+    def t(self, key: str, **kwargs) -> str:
+        lang = self.config.get("language", "es")
+        return get_text(lang, key, **kwargs)
+
+    def target_name(self, target: str) -> str:
+        lang = self.config.get("language", "es")
+        return get_target_name(lang, target)
+
+    def _toggle_language(self):
+        cur = self.config.get("language", "es")
+        self.config["language"] = "en" if cur == "es" else "es"
+        self.save_config(silent=True)
+        self._update_ui_texts()
+
+    def _update_ui_texts(self):
+        max_ctrls = self.config.get("max_controllers", 8)
+        self.root.title(self.t("app_title"))
+        if hasattr(self, "title_lbl"):
+            self.title_lbl.config(text=self.t("header_title", count=max_ctrls))
+        if hasattr(self, "btn_devices"):
+            self.btn_devices.config(text=self.t("btn_devices"))
+        if hasattr(self, "btn_settings"):
+            self.btn_settings.config(text=self.t("btn_settings"))
+        if hasattr(self, "btn_lang"):
+            self.btn_lang.config(text=self.t("btn_language"))
+        if hasattr(self, "btn_joy_cpl"):
+            self.btn_joy_cpl.config(text=self.t("btn_joy_cpl"))
+        if hasattr(self, "btn_save"):
+            self.btn_save.config(text=self.t("btn_save"))
+        if hasattr(self, "btn_reset"):
+            self.btn_reset.config(text=self.t("btn_reset"))
+
+        if hasattr(self, "engine") and self.engine.is_running:
+            if hasattr(self, "status_text_lbl"):
+                self.status_text_lbl.config(text=self.t("status_active"))
+            if hasattr(self, "btn_toggle_emu"):
+                self.btn_toggle_emu.config(text=self.t("btn_stop_emu"))
+        else:
+            if hasattr(self, "status_text_lbl"):
+                self.status_text_lbl.config(text=self.t("status_stopped"))
+            if hasattr(self, "btn_toggle_emu"):
+                self.btn_toggle_emu.config(text=self.t("btn_start_emu"))
+
+        for i, tab in self.tab_frames.items():
+            tab_text = self.t("tab_c", i=i) if max_ctrls > 8 else self.t("tab_control", i=i)
+            self.notebook.tab(tab, text=f" {tab_text} ")
+
+        self._refresh_all_devices()
+
+    def _setup_app_icon(self):
+        """Configura el icono de la ventana principal y secundarias a partir de icon.svg o icon.ico/png"""
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("j360More.multiemulator.app")
+            except Exception:
+                pass
+
+        # 1. Asegurar generación si solo está presente icon.svg
+        if (not os.path.exists(ICON_PNG_PATH) or not os.path.exists(ICON_ICO_PATH)) and os.path.exists(ICON_SVG_PATH) and resvg_py is not None:
+            try:
+                png_bytes = resvg_py.svg_to_bytes(svg_path=ICON_SVG_PATH, width=256)
+                pil_img = Image.open(io.BytesIO(png_bytes))
+                pil_img.save(ICON_PNG_PATH, format="PNG")
+                pil_img.save(ICON_ICO_PATH, format="ICO", sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
+            except Exception as e:
+                print(f"[!] Error generando icono desde icon.svg: {e}")
+
+        # 2. Configurar icono en la ventana de Tkinter
+        if os.path.exists(ICON_ICO_PATH):
+            try:
+                self.root.iconbitmap(ICON_ICO_PATH)
+            except Exception:
+                pass
+
+        if os.path.exists(ICON_PNG_PATH):
+            try:
+                self.app_icon_tk = ImageTk.PhotoImage(file=ICON_PNG_PATH)
+                self.root.iconphoto(True, self.app_icon_tk)
+            except Exception:
+                pass
+
+    def _load_assets(self):
+        self.controller_img_tk = None
+
+        # 1. Intentar renderizar controller.svg con resvg_py
+        if os.path.exists(CONTROLLER_SVG_PATH) and resvg_py is not None:
+            try:
+                png_bytes = resvg_py.svg_to_bytes(svg_path=CONTROLLER_SVG_PATH, width=350)
+                pil_img = Image.open(io.BytesIO(png_bytes))
+                self.controller_img_tk = ImageTk.PhotoImage(pil_img)
+                # Guardar en cache local
+                pil_img.save(CONTROLLER_CACHE_PNG)
+                return
+            except Exception as e:
+                print(f"[!] Error renderizando SVG: {e}")
+
+        # 2. Cargar cache renderizada
+        if os.path.exists(CONTROLLER_CACHE_PNG):
+            try:
+                pil_img = Image.open(CONTROLLER_CACHE_PNG)
+                self.controller_img_tk = ImageTk.PhotoImage(pil_img)
+                return
+            except Exception:
+                pass
+
+        # 3. Fallback a PNG anterior si existe
+        if os.path.exists(CONTROLLER_PNG_FALLBACK):
+            try:
+                pil_img = Image.open(CONTROLLER_PNG_FALLBACK).resize((350, 275), Image.Resampling.LANCZOS)
+                self.controller_img_tk = ImageTk.PhotoImage(pil_img)
+            except Exception:
+                pass
+
+    def load_config(self) -> dict:
+        if os.path.exists(CONFIG_FILE):
+            try:
+                with open(CONFIG_FILE, "r", encoding="utf-8-sig") as f:
+                    data = json.load(f)
+                    if "language" not in data:
+                        data["language"] = "es"
+                    if "author" not in data:
+                        data["author"] = "JuanJSAR"
+                    if "max_controllers" not in data:
+                        data["max_controllers"] = 8
+                    for i in range(1, 13):
+                        str_i = str(i)
+                        if str_i in data.get("controllers", {}):
+                            if "calibration" not in data["controllers"][str_i]:
+                                data["controllers"][str_i]["calibration"] = json.loads(json.dumps(DEFAULT_CALIBRATION))
+                        else:
+                            data["controllers"][str_i] = {
+                                "name": f"Jugador {i}",
+                                "enabled": True,
+                                "physical_device_id": f"joy_{i-1}" if i <= 4 else "none",
+                                "mappings": dict(DEFAULT_MAPPINGS),
+                                "calibration": json.loads(json.dumps(DEFAULT_CALIBRATION))
+                            }
+                    return data
+            except Exception as e:
+                print(f"[!] Error leyendo {CONFIG_FILE}: {e}")
+
+        cfg = {"version": "2.0", "author": "JuanJSAR", "language": "es", "max_controllers": 8, "controllers": {}}
+        for i in range(1, 13):
+            cfg["controllers"][str(i)] = {
+                "name": f"Jugador {i}",
+                "enabled": True,
+                "physical_device_id": f"joy_{i-1}" if i <= 4 else "none",
+                "mappings": dict(DEFAULT_MAPPINGS),
+                "calibration": json.loads(json.dumps(DEFAULT_CALIBRATION))
+            }
+        return cfg
+
+    def save_config(self, silent: bool = False):
+        self._sync_ui_to_config()
+        try:
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump(self.config, f, indent=2, ensure_ascii=False)
+            self.engine.set_config(self.config)
+            if not silent:
+                messagebox.showinfo(self.t("btn_settings"), self.t("config_saved"))
+        except Exception as e:
+            if not silent:
+                messagebox.showerror("Error", self.t("config_error", e=e))
+
+    def _build_ui(self):
+        # 1. Cabecera superior compacta
+        header_frame = ttk.Frame(self.root, padding="8 3 8 3")
+        header_frame.pack(fill=tk.X)
+
+        max_ctrls = self.config.get("max_controllers", 8)
+        self.title_lbl = ttk.Label(header_frame, text=self.t("header_title", count=max_ctrls), font=("Segoe UI", 10, "bold"))
+        self.title_lbl.pack(side=tk.LEFT)
+
+        self.btn_devices = ttk.Button(header_frame, text=self.t("btn_devices"), command=self._open_devices_dialog)
+        self.btn_devices.pack(side=tk.LEFT, padx=(12, 4))
+
+        self.btn_settings = ttk.Button(header_frame, text=self.t("btn_settings"), command=self._open_settings_dialog)
+        self.btn_settings.pack(side=tk.LEFT, padx=4)
+
+        self.btn_lang = ttk.Button(header_frame, text=self.t("btn_language"), command=self._toggle_language)
+        self.btn_lang.pack(side=tk.LEFT, padx=4)
+
+        status_container = ttk.Frame(header_frame)
+        status_container.pack(side=tk.RIGHT)
+
+        self.status_dot = tk.Canvas(status_container, width=12, height=12, highlightthickness=0)
+        self.status_dot.pack(side=tk.LEFT, padx=3)
+        self.status_circle = self.status_dot.create_oval(1, 1, 11, 11, fill="#888888", outline="")
+
+        self.status_text_lbl = ttk.Label(status_container, text=self.t("status_stopped"), font=("Segoe UI", 8))
+        self.status_text_lbl.pack(side=tk.LEFT)
+
+        # 2. Pestañas de controles (1 a 12 según max_controllers)
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=6, pady=2)
+
+        self.tab_frames = {}
+        self.tab_widgets = {}
+
+        self._rebuild_tabs(max_ctrls)
+
+        self.notebook.bind("<<NotebookTabChanged>>", lambda e: self._on_tab_changed())
+
+        # 3. Barra inferior compacta
+        bottom_frame = ttk.Frame(self.root, padding="8 4 8 4")
+        bottom_frame.pack(fill=tk.X, side=tk.BOTTOM)
+
+        self.btn_toggle_emu = ttk.Button(bottom_frame, text=self.t("btn_start_emu"), command=self._toggle_emulation)
+        self.btn_toggle_emu.pack(side=tk.LEFT, padx=4)
+
+        self.btn_joy_cpl = ttk.Button(bottom_frame, text=self.t("btn_joy_cpl"), command=self._open_joy_cpl)
+        self.btn_joy_cpl.pack(side=tk.LEFT, padx=4)
+
+        self.btn_save = ttk.Button(bottom_frame, text=self.t("btn_save"), command=self.save_config)
+        self.btn_save.pack(side=tk.RIGHT, padx=4)
+
+        self.btn_reset = ttk.Button(bottom_frame, text=self.t("btn_reset"), command=self._reset_current_preset)
+        self.btn_reset.pack(side=tk.RIGHT, padx=4)
+
+    def _rebuild_tabs(self, count: int):
+        # Guardar pestaña seleccionada actualmente si es posible
+        cur_idx = 0
+        try:
+            cur_idx = self.notebook.index(self.notebook.select())
+        except Exception:
+            pass
+
+        # Limpiar pestañas actuales del notebook
+        for tab_id in self.notebook.tabs():
+            self.notebook.forget(tab_id)
+
+        self.tab_frames.clear()
+        self.tab_widgets.clear()
+
+        for i in range(1, count + 1):
+            tab = ttk.Frame(self.notebook, padding=4)
+            self.notebook.add(tab, text=f" C{i} " if count > 8 else f" Control {i} ")
+            self.tab_frames[i] = tab
+            self._build_tab_content(i, tab)
+
+        if count > 0:
+            target_idx = min(cur_idx, count - 1)
+            self.notebook.select(target_idx)
+
+        if hasattr(self, "title_lbl"):
+            self.title_lbl.config(text=f"j360More ({count} Mandos)")
+
+        self._refresh_all_devices()
+
+    def _build_tab_content(self, pad_id: int, parent: ttk.Frame):
+        widgets = {"combos": {}, "buttons": {}, "calib": {}, "mapping_controls": []}
+
+        # Barra de asignación de periférico físico
+        top_bar = ttk.Frame(parent, padding=2)
+        top_bar.pack(fill=tk.X, pady=(0, 2))
+
+        enabled_var = tk.BooleanVar(value=self.config.get("controllers", {}).get(str(pad_id), {}).get("enabled", True))
+        chk_enable = ttk.Checkbutton(top_bar, text="Habilitado", variable=enabled_var, command=self._sync_ui_to_config)
+        chk_enable.pack(side=tk.LEFT, padx=(2, 10))
+        widgets["enabled_var"] = enabled_var
+        widgets["chk_enable"] = chk_enable
+
+        ttk.Label(top_bar, text="Periférico:").pack(side=tk.LEFT, padx=2)
+        dev_combo = ttk.Combobox(top_bar, state="readonly", width=38)
+        dev_combo.pack(side=tk.LEFT, padx=3)
+        dev_combo.bind("<<ComboboxSelected>>", lambda e, p=pad_id: self._on_device_selected(p))
+        widgets["dev_combo"] = dev_combo
+
+        btn_refresh = ttk.Button(top_bar, text="🔄 Refrescar", command=self._refresh_all_devices)
+        btn_refresh.pack(side=tk.LEFT, padx=4)
+
+        btn_copy = ttk.Button(top_bar, text="📋 Copiar Mapeo a...", command=lambda p=pad_id: self._open_copy_dialog(p))
+        btn_copy.pack(side=tk.LEFT, padx=4)
+        widgets["mapping_controls"].append(btn_copy)
+
+        # Sub-notebook: General, Triggers, Sticks
+        sub_nb = ttk.Notebook(parent)
+        sub_nb.pack(fill=tk.BOTH, expand=True, pady=2)
+        widgets["sub_nb"] = sub_nb
+
+        # Sub-pestaña 1: General
+        sub_gen = ttk.Frame(sub_nb, padding=2)
+        sub_nb.add(sub_gen, text=" General ")
+        self._build_subtab_general(pad_id, sub_gen, widgets)
+
+        # Sub-pestaña 2: Triggers
+        sub_trig = ttk.Frame(sub_nb, padding=4)
+        sub_nb.add(sub_trig, text=" Triggers ")
+        self._build_subtab_triggers(pad_id, sub_trig, widgets)
+
+        # Sub-pestaña 3: Sticks (Stick Izquierdo y Stick Derecho combinados)
+        sub_sticks = ttk.Frame(sub_nb, padding=4)
+        sub_nb.add(sub_sticks, text=" Sticks ")
+        self._build_subtab_sticks(pad_id, sub_sticks, widgets)
+
+        self.tab_widgets[pad_id] = widgets
+
+    def _build_subtab_general(self, pad_id: int, parent: ttk.Frame, widgets: dict):
+        main_grid = ttk.Frame(parent)
+        main_grid.pack(fill=tk.BOTH, expand=True)
+
+        left_col = ttk.Frame(main_grid, padding=2)
+        left_col.pack(side=tk.LEFT, fill=tk.Y, padx=4)
+
+        center_col = ttk.Frame(main_grid, padding=2)
+        center_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=2)
+
+        right_col = ttk.Frame(main_grid, padding=2)
+        right_col.pack(side=tk.RIGHT, fill=tk.Y, padx=4)
+
+        def make_row(parent_col, label_text, target_name, label_anchor="w", lbl_width=12):
+            row = ttk.Frame(parent_col)
+            row.pack(fill=tk.X, pady=1)
+            lbl = ttk.Label(row, text=label_text, width=lbl_width, anchor=label_anchor, font=("Segoe UI", 8))
+            lbl.pack(side=tk.LEFT)
+            cb = ttk.Combobox(row, values=INPUT_OPTIONS, width=11, font=("Segoe UI", 8))
+            cb.pack(side=tk.LEFT, padx=2)
+            cb.bind("<<ComboboxSelected>>", lambda e, p=pad_id, t=target_name, c=cb: self._on_combo_changed(p, t, c))
+            btn = ttk.Button(row, text="...", width=3, command=lambda: self._start_record(pad_id, target_name))
+            btn.pack(side=tk.LEFT)
+            widgets["combos"][target_name] = cb
+            widgets["buttons"][target_name] = btn
+
+        # Columna Izquierda
+        ttk.Label(left_col, text="CONTROLES IZQUIERDOS", font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(0, 1))
+        make_row(left_col, "Trigger (LT):", "LEFT_TRIGGER")
+        make_row(left_col, "Bumper (LB):", "LEFT_SHOULDER")
+        make_row(left_col, "Back:", "BACK")
+        make_row(left_col, "Start:", "START")
+        make_row(left_col, "Guía (Xbox):", "GUIDE")
+        ttk.Separator(left_col, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=2)
+        ttk.Label(left_col, text="STICK IZQ. (EJES / TECLAS)", font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(0, 1))
+        make_row(left_col, "Stick Eje X:", "LEFT_STICK_X")
+        make_row(left_col, "Stick Eje Y:", "LEFT_STICK_Y")
+        make_row(left_col, "Stick Botón:", "LEFT_THUMB")
+        make_row(left_col, "Stick Arriba:", "LEFT_STICK_UP")
+        make_row(left_col, "Stick Abajo:", "LEFT_STICK_DOWN")
+        make_row(left_col, "Stick Izq.:", "LEFT_STICK_LEFT")
+        make_row(left_col, "Stick Der.:", "LEFT_STICK_RIGHT")
+
+        # Columna Central: Imagen SVG y Clic Interactivo
+        c_w, c_h = 350, 275
+        canvas = tk.Canvas(center_col, width=c_w, height=c_h, bg="#ffffff", highlightthickness=1, highlightbackground="#d0d0d0")
+        canvas.pack(pady=2)
+        widgets["canvas"] = canvas
+
+        if self.controller_img_tk:
+            canvas.create_image(c_w // 2, c_h // 2, image=self.controller_img_tk)
+
+        # Vincular clics del ratón para mapear directamente al pulsar en el SVG
+        canvas.bind("<Button-1>", lambda e, p=pad_id: self._on_canvas_click(e, p))
+        canvas.bind("<Motion>", lambda e, p=pad_id: self._on_canvas_motion(e, p))
+
+        # Indicadores reactivos en el canvas (LEDs de pulsación)
+        widgets["leds"] = {}
+        for btn_k, (cx, cy, r) in CANVAS_POINTS.items():
+            glow = canvas.create_oval(cx - r - 2, cy - r - 2, cx + r + 2, cy + r + 2, outline="#00ff66", width=2, state="hidden")
+            tag = canvas.create_oval(cx - r, cy - r, cx + r, cy + r, fill="#00ff66", outline="#ffffff", width=2, state="hidden")
+            widgets["leds"][btn_k] = (tag, glow)
+
+        # Elementos dinamicos para destacar el boton en modo ASIGNACION (grabando)
+        rec_halo = canvas.create_oval(0, 0, 0, 0, outline="#ff3300", width=3, state="hidden")
+        rec_core = canvas.create_oval(0, 0, 0, 0, fill="#ffaa00", outline="#ffffff", width=2, state="hidden")
+        widgets["rec_indicators"] = {"halo": rec_halo, "core": rec_core}
+
+        # Mensaje de ayuda / tooltip
+        self.hint_lbl = ttk.Label(center_col, text="💡 Clic en cualquier botón del mando para mapear", font=("Segoe UI", 8, "italic"))
+        self.hint_lbl.pack(pady=1)
+
+        # D-Pad inferior centrado con textos centrados
+        dpad_outer = ttk.Frame(center_col)
+        dpad_outer.pack(pady=2)
+
+        ttk.Label(dpad_outer, text="CRUCETA (D-PAD)", font=("Segoe UI", 8, "bold"), anchor="center").pack(fill=tk.X, pady=(0, 1))
+
+        dpad_frame = ttk.Frame(dpad_outer)
+        dpad_frame.pack()
+        make_row(dpad_frame, "D-Pad Arriba:", "DPAD_UP", label_anchor="center", lbl_width=14)
+        make_row(dpad_frame, "D-Pad Abajo:", "DPAD_DOWN", label_anchor="center", lbl_width=14)
+        make_row(dpad_frame, "D-Pad Izq.:", "DPAD_LEFT", label_anchor="center", lbl_width=14)
+        make_row(dpad_frame, "D-Pad Der.:", "DPAD_RIGHT", label_anchor="center", lbl_width=14)
+
+        # Columna Derecha
+        ttk.Label(right_col, text="CONTROLES DERECHOS", font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(0, 1))
+        make_row(right_col, "Trigger (RT):", "RIGHT_TRIGGER")
+        make_row(right_col, "Bumper (RB):", "RIGHT_SHOULDER")
+        make_row(right_col, "Botón Y:", "Y")
+        make_row(right_col, "Botón X:", "X")
+        make_row(right_col, "Botón B:", "B")
+        make_row(right_col, "Botón A:", "A")
+        ttk.Separator(right_col, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=2)
+        ttk.Label(right_col, text="STICK DER. (EJES / TECLAS)", font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(0, 1))
+        make_row(right_col, "Stick Eje X:", "RIGHT_STICK_X")
+        make_row(right_col, "Stick Eje Y:", "RIGHT_STICK_Y")
+        make_row(right_col, "Stick Botón:", "RIGHT_THUMB")
+        make_row(right_col, "Stick Arriba:", "RIGHT_STICK_UP")
+        make_row(right_col, "Stick Abajo:", "RIGHT_STICK_DOWN")
+        make_row(right_col, "Stick Izq.:", "RIGHT_STICK_LEFT")
+        make_row(right_col, "Stick Der.:", "RIGHT_STICK_RIGHT")
+
+        cfg = self.config.get("controllers", {}).get(str(pad_id), {})
+        saved_maps = cfg.get("mappings", {})
+        for target, cb in widgets["combos"].items():
+            val = saved_maps.get(target, DEFAULT_MAPPINGS.get(target, "-- Ninguno --"))
+            cb.set(val)
+
+    def _find_target_at_pos(self, click_x: float, click_y: float) -> str:
+        """Determina qué botón o parte interactiva fue clickeada (excluyendo el Fondo)."""
+        # 1. Comprobar cruceta D-Pad
+        dpad_cx, dpad_cy = 122.5, 189.6
+        dx = click_x - dpad_cx
+        dy = click_y - dpad_cy
+        dist_dpad = math.sqrt(dx * dx + dy * dy)
+        if dist_dpad <= 28.0:
+            if abs(dy) > abs(dx):
+                return "DPAD_UP" if dy < 0 else "DPAD_DOWN"
+            else:
+                return "DPAD_LEFT" if dx < 0 else "DPAD_RIGHT"
+
+        # 2. Comprobar Stick Izquierdo (direccional o centro)
+        ls_cx, ls_cy = 63.9, 140.2
+        dx_ls = click_x - ls_cx
+        dy_ls = click_y - ls_cy
+        dist_ls = math.sqrt(dx_ls * dx_ls + dy_ls * dy_ls)
+        if dist_ls <= 26.0:
+            if dist_ls < 7.5:
+                return "LEFT_THUMB"
+            else:
+                if abs(dy_ls) > abs(dx_ls):
+                    return "LEFT_STICK_UP" if dy_ls < 0 else "LEFT_STICK_DOWN"
+                else:
+                    return "LEFT_STICK_LEFT" if dx_ls < 0 else "LEFT_STICK_RIGHT"
+
+        # 3. Comprobar Stick Derecho (direccional o centro)
+        rs_cx, rs_cy = 224.4, 189.6
+        dx_rs = click_x - rs_cx
+        dy_rs = click_y - rs_cy
+        dist_rs = math.sqrt(dx_rs * dx_rs + dy_rs * dy_rs)
+        if dist_rs <= 26.0:
+            if dist_rs < 7.5:
+                return "RIGHT_THUMB"
+            else:
+                if abs(dy_rs) > abs(dx_rs):
+                    return "RIGHT_STICK_UP" if dy_rs < 0 else "RIGHT_STICK_DOWN"
+                else:
+                    return "RIGHT_STICK_LEFT" if dx_rs < 0 else "RIGHT_STICK_RIGHT"
+
+        # 4. Comprobar los demás botones individuales
+        for btn_name, (bx, by, br) in HITBOXES.items():
+            d = math.sqrt((click_x - bx) ** 2 + (click_y - by) ** 2)
+            if d <= br:
+                return btn_name
+
+        return None
+
+    def _on_canvas_motion(self, event, pad_id: int):
+        widgets = self.tab_widgets.get(pad_id, {})
+        canvas = widgets.get("canvas")
+        if not canvas:
+            return
+
+        if not widgets.get("is_device_assigned", True):
+            canvas.config(cursor="")
+            if hasattr(self, "hint_lbl"):
+                self.hint_lbl.config(text="⚠️ Sin periférico asignado. Selecciona un dispositivo arriba para habilitar el mapeo.")
+            return
+
+        target = self._find_target_at_pos(event.x, event.y)
+        if target:
+            canvas.config(cursor="hand2")
+            lbl_text = TARGET_NAMES_ES.get(target, target)
+            self.hint_lbl.config(text=f"👉 Clic para mapear: [{lbl_text}]")
+        else:
+            canvas.config(cursor="")
+            self.hint_lbl.config(text="💡 Clic en cualquier botón del mando para mapear")
+
+    def _on_canvas_click(self, event, pad_id: int):
+        widgets = self.tab_widgets.get(pad_id, {})
+        if not widgets.get("is_device_assigned", True):
+            return
+
+        target = self._find_target_at_pos(event.x, event.y)
+        if target:
+            lbl_text = TARGET_NAMES_ES.get(target, target)
+            self.hint_lbl.config(text=f"🎯 Mapeando: [{lbl_text}]... Presiona botón en tu mando o tecla")
+            self._start_record(pad_id, target)
+
+    def _build_calib_row(self, parent, label_text: str, from_: float, to: float, init_val: float, var_holder: dict, var_key: str, widgets: dict = None):
+        row = ttk.Frame(parent)
+        row.pack(fill=tk.X, pady=1)
+
+        ttk.Label(row, text=label_text, width=14, font=("Segoe UI", 8)).pack(side=tk.LEFT)
+
+        float_var = tk.DoubleVar(value=float(init_val))
+        var_holder[var_key] = float_var
+
+        # Slider con pasos en unidades enteras
+        scale = ttk.Scale(row, from_=from_, to=to, orient=tk.HORIZONTAL)
+        scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=4)
+
+        # Entry para permitir tipeo directo de float con % al lado
+        entry_var = tk.StringVar(value=f"{init_val:g}")
+        entry = ttk.Entry(row, textvariable=entry_var, width=6, font=("Segoe UI", 8))
+        entry.pack(side=tk.LEFT)
+        ttk.Label(row, text="%", font=("Segoe UI", 8)).pack(side=tk.LEFT, padx=(1, 2))
+
+        var_holder[f"{var_key}_scale"] = scale
+        var_holder[f"{var_key}_entry"] = entry_var
+        var_holder[f"{var_key}_entry_widget"] = entry
+
+        if widgets is not None and "mapping_controls" in widgets:
+            widgets["mapping_controls"].append(scale)
+            widgets["mapping_controls"].append(entry)
+
+        is_updating = [False]
+
+        def on_scale_move(v):
+            if is_updating[0]:
+                return
+            is_updating[0] = True
+            try:
+                # El slider opera en unidades enteras
+                int_val = round(float(v))
+                float_var.set(float(int_val))
+                entry_var.set(str(int_val))
+                self._sync_ui_to_config()
+            finally:
+                is_updating[0] = False
+
+        scale.configure(command=on_scale_move)
+        scale.set(round(init_val))
+
+        def on_entry_commit(event=None):
+            if is_updating[0]:
+                return
+            is_updating[0] = True
+            try:
+                txt = entry_var.get().strip().replace("%", "")
+                val = float(txt)
+                val = max(from_, min(to, val))
+                float_var.set(val)
+                scale.set(round(val))
+                entry_var.set(f"{val:g}")
+                self._sync_ui_to_config()
+            except ValueError:
+                entry_var.set(f"{float_var.get():g}")
+            finally:
+                is_updating[0] = False
+
+        entry.bind("<Return>", on_entry_commit)
+        entry.bind("<FocusOut>", on_entry_commit)
+
+        return float_var
+
+    def _build_subtab_triggers(self, pad_id: int, parent: ttk.Frame, widgets: dict):
+        cfg = self.config.get("controllers", {}).get(str(pad_id), {})
+        calib_cfg = cfg.get("calibration", json.loads(json.dumps(DEFAULT_CALIBRATION)))
+
+        def make_trigger_panel(parent_frame, trig_key, title):
+            box = ttk.LabelFrame(parent_frame, text=title, padding=6)
+            box.pack(fill=tk.BOTH, expand=True, pady=3)
+
+            data = calib_cfg.get(trig_key, {"deadzone": 0, "anti_deadzone": 0, "sensitivity": 0, "invert": False})
+
+            # Contenedor visual: Curva de Respuesta cuadrada
+            curve_box = ttk.LabelFrame(box, text="Curva Respuesta", padding=2)
+            curve_box.pack(side=tk.LEFT, padx=6)
+
+            s_w, s_h = 125, 125
+            cv = tk.Canvas(curve_box, width=s_w, height=s_h, bg="#ffffff", highlightthickness=1, highlightbackground="#cccccc")
+            cv.pack()
+
+            lbl_di_xi = ttk.Label(curve_box, text="DI: 0    XI: 0", font=("Consolas", 8, "bold"))
+            lbl_di_xi.pack(pady=1)
+
+            right_box = ttk.Frame(box)
+            right_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10)
+
+            calib_vars = {}
+            adz_var = self._build_calib_row(right_box, "Anti-Dead Zone:", 0, 100, float(data.get("anti_deadzone", 0)), calib_vars, "adz_var", widgets)
+            dz_var = self._build_calib_row(right_box, "Dead Zone:", 0, 100, float(data.get("deadzone", 0)), calib_vars, "dz_var", widgets)
+            sens_var = self._build_calib_row(right_box, "Sensibilidad:", -100, 100, float(data.get("sensitivity", 0)), calib_vars, "sens_var", widgets)
+
+            inv_var = tk.BooleanVar(value=data.get("invert", False))
+            chk_inv = ttk.Checkbutton(right_box, text="Invertir eje (Invert)", variable=inv_var, command=self._sync_ui_to_config)
+            chk_inv.pack(anchor="w", pady=1)
+            widgets["mapping_controls"].append(chk_inv)
+
+            widgets["calib"][trig_key] = {
+                "canvas": cv,
+                "lbl_di_xi": lbl_di_xi,
+                "adz_var": adz_var,
+                "dz_var": dz_var,
+                "sens_var": sens_var,
+                "inv_var": inv_var
+            }
+
+        make_trigger_panel(parent, "left_trigger", "Gatillo Izquierdo (Left Trigger)")
+        make_trigger_panel(parent, "right_trigger", "Gatillo Derecho (Right Trigger)")
+
+    def _build_subtab_sticks(self, pad_id: int, parent: ttk.Frame, widgets: dict):
+        cfg = self.config.get("controllers", {}).get(str(pad_id), {})
+        calib_cfg = cfg.get("calibration", json.loads(json.dumps(DEFAULT_CALIBRATION)))
+
+        def make_stick_box(parent_frame, stick_key: str, stick_title: str):
+            data = calib_cfg.get(stick_key, {"deadzone": 8, "anti_deadzone": 0, "sensitivity": 0, "invert_x": False, "invert_y": False})
+
+            box = ttk.LabelFrame(parent_frame, text=stick_title, padding=6)
+            box.pack(fill=tk.BOTH, expand=True, pady=3)
+
+            # Contenedor izquierdo: Visualizadores 2D y Curva
+            visuals_row = ttk.Frame(box)
+            visuals_row.pack(side=tk.LEFT, padx=6)
+
+            # 1. Posición 2D
+            pos_box = ttk.LabelFrame(visuals_row, text="Posición 2D", padding=2)
+            pos_box.pack(side=tk.LEFT, padx=3)
+
+            s_w, s_h = 125, 125
+            cv_pos = tk.Canvas(pos_box, width=s_w, height=s_h, bg="#ffffff", highlightthickness=1, highlightbackground="#cccccc")
+            cv_pos.pack()
+
+            lbl_xy = ttk.Label(pos_box, text="X: +0.00  Y: +0.00", font=("Consolas", 8, "bold"))
+            lbl_xy.pack(pady=1)
+
+            # 2. Curva de Sensibilidad
+            curve_box = ttk.LabelFrame(visuals_row, text="Curva Respuesta", padding=2)
+            curve_box.pack(side=tk.LEFT, padx=3)
+
+            cv_curve = tk.Canvas(curve_box, width=s_w, height=s_h, bg="#ffffff", highlightthickness=1, highlightbackground="#cccccc")
+            cv_curve.pack()
+
+            lbl_di_xi = ttk.Label(curve_box, text="DI: 0    XI: 0", font=("Consolas", 8, "bold"))
+            lbl_di_xi.pack(pady=1)
+
+            # Contenedor derecho: Sliders y controles
+            right_box = ttk.Frame(box, padding=2)
+            right_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=8)
+
+            calib_vars = {}
+            adz_var = self._build_calib_row(right_box, "Anti-Dead Zone:", 0, 100, float(data.get("anti_deadzone", 0)), calib_vars, "adz_var", widgets)
+            dz_var = self._build_calib_row(right_box, "Dead Zone:", 0, 100, float(data.get("deadzone", 8)), calib_vars, "dz_var", widgets)
+            sens_var = self._build_calib_row(right_box, "Sensibilidad:", -100, 100, float(data.get("sensitivity", 0)), calib_vars, "sens_var", widgets)
+
+            check_row = ttk.Frame(right_box)
+            check_row.pack(fill=tk.X, pady=2)
+
+            inv_x_var = tk.BooleanVar(value=data.get("invert_x", False))
+            chk_inv_x = ttk.Checkbutton(check_row, text="Invertir Eje X", variable=inv_x_var, command=self._sync_ui_to_config)
+            chk_inv_x.pack(side=tk.LEFT, padx=(0, 10))
+            widgets["mapping_controls"].append(chk_inv_x)
+
+            inv_y_var = tk.BooleanVar(value=data.get("invert_y", False))
+            chk_inv_y = ttk.Checkbutton(check_row, text="Invertir Eje Y", variable=inv_y_var, command=self._sync_ui_to_config)
+            chk_inv_y.pack(side=tk.LEFT)
+            widgets["mapping_controls"].append(chk_inv_y)
+
+            widgets["calib"][stick_key] = {
+                "canvas": cv_pos,
+                "curve_canvas": cv_curve,
+                "lbl_xy": lbl_xy,
+                "lbl_di_xi": lbl_di_xi,
+                "dz_var": dz_var,
+                "adz_var": adz_var,
+                "sens_var": sens_var,
+                "inv_x_var": inv_x_var,
+                "inv_y_var": inv_y_var
+            }
+
+        make_stick_box(parent, "left_stick", "Stick Izquierdo (Left Stick)")
+        make_stick_box(parent, "right_stick", "Stick Derecho (Right Stick)")
+
+    def _update_tab_state(self, pad_id: int, has_dev: bool):
+        """Si el control no tiene un periférico asignado, no se puede activar y todas las funciones de mapeo se desactivan (opacas)."""
+        widgets = self.tab_widgets.get(pad_id)
+        if not widgets:
+            return
+
+        widgets["is_device_assigned"] = has_dev
+        chk_enable = widgets.get("chk_enable")
+        enabled_var = widgets.get("enabled_var")
+
+        if not has_dev:
+            # 1. El control NO se puede activar si no tiene periférico asignado
+            if chk_enable:
+                try:
+                    chk_enable.state(['disabled'])
+                except Exception:
+                    chk_enable.config(state=tk.DISABLED)
+            if enabled_var:
+                enabled_var.set(False)
+
+            # 2. Todas las funciones de mapeo se desactivan y vuelven opacas
+            for cb in widgets.get("combos", {}).values():
+                cb.config(state="disabled")
+
+            for btn in widgets.get("buttons", {}).values():
+                btn.config(state=tk.DISABLED)
+
+            for ctrl in widgets.get("mapping_controls", []):
+                try:
+                    ctrl.state(['disabled'])
+                except Exception:
+                    try:
+                        ctrl.config(state=tk.DISABLED)
+                    except Exception:
+                        pass
+        else:
+            # 1. El control SÍ se puede activar si tiene periférico asignado
+            if chk_enable:
+                try:
+                    chk_enable.state(['!disabled'])
+                except Exception:
+                    chk_enable.config(state=tk.NORMAL)
+            if enabled_var:
+                cfg_enabled = self.config.get("controllers", {}).get(str(pad_id), {}).get("enabled", True)
+                enabled_var.set(cfg_enabled)
+
+            # 2. Todas las funciones de mapeo se reactivan
+            for cb in widgets.get("combos", {}).values():
+                cb.config(state="readonly")
+
+            for btn in widgets.get("buttons", {}).values():
+                btn.config(state=tk.NORMAL)
+
+            for ctrl in widgets.get("mapping_controls", []):
+                try:
+                    ctrl.state(['!disabled'])
+                except Exception:
+                    try:
+                        ctrl.config(state=tk.NORMAL)
+                    except Exception:
+                        pass
+
+    def _refresh_all_devices(self):
+        self.available_devices = self.device_manager.refresh_devices()
+        dev_names = [d["name"] for d in self.available_devices]
+
+        for pad_id, widgets in self.tab_widgets.items():
+            cb = widgets["dev_combo"]
+            cb["values"] = dev_names
+
+            cfg = self.config.get("controllers", {}).get(str(pad_id), {})
+            saved_dev_id = cfg.get("physical_device_id", "none")
+
+            match_idx = 0
+            for idx, dev in enumerate(self.available_devices):
+                if dev["id"] == saved_dev_id:
+                    match_idx = idx
+                    break
+            cb.current(match_idx)
+
+            has_dev = (saved_dev_id != "none" and any(d["id"] == saved_dev_id for d in self.available_devices if d["id"] != "none"))
+            self._update_tab_state(pad_id, has_dev)
+
+    def _on_device_selected(self, pad_id: int):
+        widgets = self.tab_widgets[pad_id]
+        sel_idx = widgets["dev_combo"].current()
+        if 0 <= sel_idx < len(self.available_devices):
+            dev = self.available_devices[sel_idx]
+            dev_id = dev["id"]
+            if str(pad_id) not in self.config["controllers"]:
+                self.config["controllers"][str(pad_id)] = {}
+            self.config["controllers"][str(pad_id)]["physical_device_id"] = dev_id
+
+            has_dev = (dev_id != "none")
+            self._update_tab_state(pad_id, has_dev)
+            self._sync_ui_to_config()
+            self.engine.set_config(self.config)
+
+    def _sync_ui_to_config(self):
+        for pad_id, widgets in self.tab_widgets.items():
+            str_id = str(pad_id)
+            if str_id not in self.config["controllers"]:
+                self.config["controllers"][str_id] = {}
+
+            self.config["controllers"][str_id]["enabled"] = widgets["enabled_var"].get()
+
+            sel_idx = widgets["dev_combo"].current()
+            if 0 <= sel_idx < len(self.available_devices):
+                self.config["controllers"][str_id]["physical_device_id"] = self.available_devices[sel_idx]["id"]
+
+            mappings = {}
+            for target, cb in widgets["combos"].items():
+                mappings[target] = cb.get().strip()
+            self.config["controllers"][str_id]["mappings"] = mappings
+
+            calib = {}
+            c_widgets = widgets.get("calib", {})
+            for key in ["left_trigger", "right_trigger"]:
+                if key in c_widgets:
+                    calib[key] = {
+                        "deadzone": c_widgets[key]["dz_var"].get(),
+                        "anti_deadzone": c_widgets[key]["adz_var"].get(),
+                        "sensitivity": c_widgets[key]["sens_var"].get(),
+                        "invert": c_widgets[key]["inv_var"].get()
+                    }
+            for key in ["left_stick", "right_stick"]:
+                if key in c_widgets:
+                    calib[key] = {
+                        "deadzone": c_widgets[key]["dz_var"].get(),
+                        "anti_deadzone": c_widgets[key]["adz_var"].get(),
+                        "sensitivity": c_widgets[key]["sens_var"].get(),
+                        "invert_x": c_widgets[key]["inv_x_var"].get(),
+                        "invert_y": c_widgets[key]["inv_y_var"].get()
+                    }
+            self.config["controllers"][str_id]["calibration"] = calib
+
+        self.engine.set_config(self.config)
+
+    def _check_mapping_conflict(self, current_pad_id: int, target_name: str, new_mapping: str):
+        if not new_mapping or new_mapping == "-- Ninguno --":
+            return None
+
+        current_cfg = self.config.get("controllers", {}).get(str(current_pad_id), {})
+        current_maps = current_cfg.get("mappings", {})
+
+        # 1. Comprobar si ya esta asignada en OTRA posicion de este mismo mando
+        for other_btn, mapped_val in current_maps.items():
+            if other_btn != target_name and mapped_val and mapped_val.strip().lower() == new_mapping.strip().lower():
+                return ("same", current_pad_id, current_cfg.get("name", f"Control {current_pad_id}"), other_btn)
+
+        # 2. Comprobar si esta asignada en otro mando virtual con el mismo periferico fisico
+        current_dev = current_cfg.get("physical_device_id", "none")
+        if current_dev != "none":
+            controllers_cfg = self.config.get("controllers", {})
+            for other_id_str, other_cfg in controllers_cfg.items():
+                try:
+                    other_id = int(other_id_str)
+                except ValueError:
+                    continue
+
+                if other_id == current_pad_id:
+                    continue
+
+                other_dev = other_cfg.get("physical_device_id", "none")
+                if other_dev == current_dev:
+                    other_maps = other_cfg.get("mappings", {})
+                    for other_btn, mapped_val in other_maps.items():
+                        if mapped_val and mapped_val.strip().lower() == new_mapping.strip().lower():
+                            other_name = other_cfg.get("name", f"Control {other_id}")
+                            return ("other", other_id, other_name, other_btn)
+        return None
+
+    def _apply_mapping_with_conflict_check(self, pad_id: int, target_name: str, new_val: str, combo: ttk.Combobox = None) -> bool:
+        new_val = new_val.strip()
+        prev_val = self.config.get("controllers", {}).get(str(pad_id), {}).get("mappings", {}).get(target_name, "-- Ninguno --")
+
+        if new_val != "-- Ninguno --":
+            conflict = self._check_mapping_conflict(pad_id, target_name, new_val)
+            if conflict:
+                conflict_type, other_id, other_name, other_btn = conflict
+                other_btn_es = TARGET_NAMES_ES.get(other_btn, other_btn)
+                target_name_es = TARGET_NAMES_ES.get(target_name, target_name)
+
+                if conflict_type == "same":
+                    ans = messagebox.askyesnocancel(
+                        "Aviso: Entrada ya mapeada en este mando",
+                        f"⚠️ La entrada '{new_val}' ya está asignada en este mismo mando:\n\n"
+                        f"  • Posición actual: [{other_btn_es}]\n\n"
+                        f"¿Qué deseas hacer para [{target_name_es}]?\n\n"
+                        f"[Sí] Mover a esta nueva posición (se desasigna de [{other_btn_es}]).\n"
+                        f"[No] Mantener la entrada en ambas posiciones (compartir).\n"
+                        f"[Cancelar] Descartar cambio y mantener valor anterior.",
+                        icon="warning"
+                    )
+                    if ans is None:
+                        if combo:
+                            combo.set(prev_val)
+                        return False
+                    elif ans is True:
+                        self.config["controllers"][str(pad_id)]["mappings"][other_btn] = "-- Ninguno --"
+                        if pad_id in self.tab_widgets:
+                            other_cb = self.tab_widgets[pad_id]["combos"].get(other_btn)
+                            if other_cb:
+                                other_cb.set("-- Ninguno --")
+
+                elif conflict_type == "other":
+                    ans = messagebox.askyesnocancel(
+                        "Aviso: Entrada ya mapeada en otro mando",
+                        f"⚠️ La entrada '{new_val}' ya está asignada en otro mando virtual:\n\n"
+                        f"  • Mando: {other_name} (Control {other_id})\n"
+                        f"  • Botón asignado: [{other_btn_es}]\n\n"
+                        f"¿Qué deseas hacer?\n\n"
+                        f"[Sí] Reasignar a este mando (se desasigna del Control {other_id}).\n"
+                        f"[No] Mantener la entrada en ambos mandos (compartir).\n"
+                        f"[Cancelar] Descartar cambio y mantener valor anterior.",
+                        icon="warning"
+                    )
+                    if ans is None:
+                        if combo:
+                            combo.set(prev_val)
+                        return False
+                    elif ans is True:
+                        str_other = str(other_id)
+                        if str_other in self.config.get("controllers", {}):
+                            self.config["controllers"][str_other]["mappings"][other_btn] = "-- Ninguno --"
+                        if other_id in self.tab_widgets:
+                            other_cb = self.tab_widgets[other_id]["combos"].get(other_btn)
+                            if other_cb:
+                                other_cb.set("-- Ninguno --")
+
+        cb = combo or self.tab_widgets.get(pad_id, {}).get("combos", {}).get(target_name)
+        if cb:
+            cb.set(new_val)
+
+        self._sync_ui_to_config()
+        return True
+
+    def _on_combo_changed(self, pad_id: int, target_name: str, combo: ttk.Combobox):
+        val = combo.get().strip()
+        self._apply_mapping_with_conflict_check(pad_id, target_name, val, combo=combo)
+
+    def _on_tab_changed(self):
+        if self.recording_target:
+            self._cancel_recording()
+
+    def _cancel_recording(self):
+        if not self.recording_target:
+            return
+        pad_id, target_name, btn = self.recording_target
+        self.device_manager.cancel_capture()
+        if btn:
+            btn.config(text="...")
+        self.recording_target = None
+        if hasattr(self, "hint_lbl"):
+            self.hint_lbl.config(text="❌ Asignación cancelada con Escape")
+
+    def _start_record(self, pad_id: int, target_name: str):
+        if self.recording_target is not None:
+            self._cancel_recording()
+
+        widgets = self.tab_widgets[pad_id]
+        btn = widgets["buttons"].get(target_name)
+        if btn:
+            btn.config(text="[...]")
+
+        self.recording_target = (pad_id, target_name, btn)
+        lbl_text = TARGET_NAMES_ES.get(target_name, target_name)
+        if hasattr(self, "hint_lbl"):
+            self.hint_lbl.config(text=f"🎯 Asignando: [{lbl_text}]... Presiona botón o tecla (Esc para cancelar)")
+
+        cfg = self.config.get("controllers", {}).get(str(pad_id), {})
+        dev_id = cfg.get("physical_device_id", "none")
+
+        threading.Thread(target=self._record_worker, args=(pad_id, target_name, dev_id, btn), daemon=True).start()
+
+    def _record_worker(self, pad_id: int, target_name: str, dev_id: str, btn: ttk.Button):
+        detected = self.device_manager.capture_input(dev_id, timeout=4.5)
+
+        def finish():
+            if self.recording_target and self.recording_target[0] == pad_id and self.recording_target[1] == target_name:
+                if detected:
+                    self._apply_mapping_with_conflict_check(pad_id, target_name, detected)
+                self.recording_target = None
+                if hasattr(self, "hint_lbl"):
+                    self.hint_lbl.config(text="💡 Clic en cualquier botón del mando para mapear")
+            if btn:
+                btn.config(text="...")
+
+        self.root.after(0, finish)
+
+    def _on_key_press(self, event):
+        # 1. Si se presiona Escape, cancelar inmediatamente la asignacion en curso
+        if event.keysym.lower() in ("escape", "esc") or event.keycode == 27:
+            if self.recording_target:
+                self._cancel_recording()
+                return
+
+        if self.recording_target:
+            pad_id, target_name, btn = self.recording_target
+            cfg = self.config.get("controllers", {}).get(str(pad_id), {})
+            dev_id = cfg.get("physical_device_id", "none")
+            if dev_id == "keyboard":
+                k_name = event.keysym.lower()
+                if btn:
+                    btn.config(text="...")
+                self.recording_target = None
+                self._apply_mapping_with_conflict_check(pad_id, target_name, f"Tecla: {k_name}")
+                if hasattr(self, "hint_lbl"):
+                    self.hint_lbl.config(text="💡 Clic en cualquier botón del mando para mapear")
+                return
+
+        self.engine.on_key_event(event.keysym, is_pressed=True)
+
+    def _on_key_release(self, event):
+        self.engine.on_key_event(event.keysym, is_pressed=False)
+
+    def _hide_emulation_devices(self):
+        """Oculta los dispositivos seleccionados con HidHide cuando inicia la emulación."""
+        if not self.driver_manager.is_hidhide_installed():
+            return
+
+        hidden_devs = self.config.get("hidden_devices", [])
+        if not hidden_devs:
+            return
+
+        # Registrar j360More en la lista blanca de HidHide para que la app siempre pueda leerlos
+        self.driver_manager.ensure_process_whitelisted()
+
+        for inst_path in hidden_devs:
+            if inst_path:
+                self.driver_manager.hide_device(inst_path)
+
+        self.driver_manager.set_cloak_active(True)
+
+    def _unhide_emulation_devices(self):
+        """Restaura la visibilidad de los dispositivos para todo el sistema cuando se detiene la emulación."""
+        if not self.driver_manager.is_hidhide_installed():
+            return
+
+        hidden_devs = self.config.get("hidden_devices", [])
+        if not hidden_devs:
+            return
+
+        for inst_path in hidden_devs:
+            if inst_path:
+                self.driver_manager.unhide_device(inst_path)
+
+    def _toggle_emulation(self):
+        self._sync_ui_to_config()
+
+        if self.engine.is_running():
+            self.engine.stop()
+            self._unhide_emulation_devices()
+            self.btn_toggle_emu.config(text="▶ Iniciar Emulación")
+            self.status_dot.itemconfig(self.status_circle, fill="#888888")
+            self.status_text_lbl.config(text="Emulación Detenida")
+        else:
+            # Comprobar si al menos un control tiene periférico asignado y está habilitado
+            max_ctrls = self.config.get("max_controllers", 12)
+            has_active_pad = False
+            for i in range(1, max_ctrls + 1):
+                c_cfg = self.config.get("controllers", {}).get(str(i), {})
+                p_dev = c_cfg.get("physical_device_id", "none")
+                if c_cfg.get("enabled", True) and p_dev and p_dev != "none":
+                    has_active_pad = True
+                    break
+
+            if not has_active_pad:
+                messagebox.showwarning(
+                    "Emulación No Disponible",
+                    "Ningún control tiene un periférico asignado o está habilitado.\n\n"
+                    "Asigna al menos un dispositivo físico (Joystick, Teclado o Mouse) en alguno de los controles para poder iniciar la emulación."
+                )
+                return
+
+            self._hide_emulation_devices()
+            self.engine.start()
+            self.btn_toggle_emu.config(text="⏹ Detener Emulación")
+            self.status_dot.itemconfig(self.status_circle, fill="#00cc44")
+            self.status_text_lbl.config(text="Emulación Activa (ViGEmBus)")
+
+    def _reset_current_preset(self):
+        cur_pad_id = self.notebook.index(self.notebook.select()) + 1
+        widgets = self.tab_widgets.get(cur_pad_id)
+        if not widgets:
+            return
+
+        for target, cb in widgets["combos"].items():
+            cb.set(DEFAULT_MAPPINGS.get(target, "-- Ninguno --"))
+
+        c_w = widgets.get("calib", {})
+        for k in ["left_trigger", "right_trigger"]:
+            if k in c_w:
+                for vkey, def_v in [("dz_var", 0), ("adz_var", 0), ("sens_var", 0)]:
+                    c_w[k][vkey].set(def_v)
+                    if f"{vkey}_scale" in c_w[k]: c_w[k][f"{vkey}_scale"].set(round(def_v))
+                    if f"{vkey}_entry" in c_w[k]: c_w[k][f"{vkey}_entry"].set(str(def_v))
+                c_w[k]["inv_var"].set(False)
+        for k in ["left_stick", "right_stick"]:
+            if k in c_w:
+                for vkey, def_v in [("dz_var", 8), ("adz_var", 0), ("sens_var", 0)]:
+                    c_w[k][vkey].set(def_v)
+                    if f"{vkey}_scale" in c_w[k]: c_w[k][f"{vkey}_scale"].set(round(def_v))
+                    if f"{vkey}_entry" in c_w[k]: c_w[k][f"{vkey}_entry"].set(str(def_v))
+                c_w[k]["inv_x_var"].set(False)
+                c_w[k]["inv_y_var"].set(False)
+
+        self._sync_ui_to_config()
+        messagebox.showinfo("Preset", f"Se han restaurado los valores por defecto para el Control {cur_pad_id}.")
+
+    def _check_system_drivers(self):
+        """Verifica la disponibilidad de ViGEmBus e HidHide al arrancar la aplicación."""
+        # 1. ViGEmBus es obligatorio
+        if not self.driver_manager.is_vigem_installed():
+            messagebox.showerror(
+                "ViGEmBus no detectado",
+                "⚠️ No se encontró el controlador ViGEmBus instalado en el sistema.\n\n"
+                "ViGEmBus es indispensable para poder crear los mandos virtuales de Xbox 360.\n"
+                "Por favor, instala ViGEmBus Driver para habilitar la emulación."
+            )
+
+        # 2. HidHide es opcional con aviso leve y checkbox 'No volver a preguntar'
+        suppress_hidhide = self.config.get("suppress_hidhide_warning", False)
+        if not suppress_hidhide and not self.driver_manager.is_hidhide_installed():
+            self._show_hidhide_warning_dialog()
+
+    def _show_hidhide_warning_dialog(self):
+        """Ventana modal informativa leve sobre la ausencia de HidHide con opción de no volver a mostrar."""
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Información - HidHide Opcional")
+        dlg.geometry("450x240")
+        dlg.resizable(False, False)
+        dlg.transient(self.root)
+        dlg.grab_set()
+
+        x = max(0, self.root.winfo_x() + (self.root.winfo_width() // 2) - 225)
+        y = max(0, self.root.winfo_y() + (self.root.winfo_height() // 2) - 120)
+        dlg.geometry(f"+{x}+{y}")
+
+        frame = ttk.Frame(dlg, padding=16)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(
+            frame,
+            text="ℹ️ HidHide no detectado (Opcional)",
+            font=("Segoe UI", 10, "bold"),
+            foreground="#d97706"
+        ).pack(anchor="w", pady=(0, 6))
+
+        msg = (
+            "No se encontró el controlador Nefarius HidHide en las rutas habituales.\n\n"
+            "• La emulación de controles virtuales funcionará con normalidad.\n"
+            "• La opción para ocultar mandos físicos (evitar doble entrada en juegos) "
+            "estará inactiva hasta instalarlo o indicar su ruta.\n\n"
+            "Puedes configurar la ruta manualmente desde el menú '⚙ Configuración...'."
+        )
+        ttk.Label(frame, text=msg, wraplength=410, font=("Segoe UI", 8)).pack(anchor="w", pady=(0, 10))
+
+        dont_ask_var = tk.BooleanVar(value=False)
+        chk_dont_ask = ttk.Checkbutton(frame, text="No volver a mostrar este aviso", variable=dont_ask_var)
+        chk_dont_ask.pack(anchor="w", pady=(0, 10))
+
+        def on_accept():
+            if dont_ask_var.get():
+                self.config["suppress_hidhide_warning"] = True
+                self.save_config()
+            dlg.destroy()
+
+        btn_box = ttk.Frame(frame)
+        btn_box.pack(fill=tk.X, side=tk.BOTTOM)
+        ttk.Button(btn_box, text="Entendido", command=on_accept).pack(side=tk.RIGHT, padx=4)
+
+    def _open_settings_dialog(self):
+        """Ventana modal de configuración con Idioma, Slider (1 a 12 mandos) y ruta de HidHide."""
+        dlg = tk.Toplevel(self.root)
+        dlg.title(self.t("set_dlg_title"))
+        dlg.geometry("520x430")
+        dlg.resizable(False, False)
+        dlg.transient(self.root)
+        dlg.grab_set()
+
+        x = max(0, self.root.winfo_x() + (self.root.winfo_width() // 2) - 260)
+        y = max(0, self.root.winfo_y() + (self.root.winfo_height() // 2) - 215)
+        dlg.geometry(f"+{x}+{y}")
+
+        frame = ttk.Frame(dlg, padding=16)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        # SECCION 1: Idioma / Language
+        box_lang = ttk.LabelFrame(frame, text="🌐 " + self.t("set_language_label"), padding=8)
+        box_lang.pack(fill=tk.X, pady=(0, 8))
+
+        cur_lang_code = self.config.get("language", "es")
+        cur_lang_str = "Español" if cur_lang_code == "es" else "English"
+        lang_var = tk.StringVar(value=cur_lang_str)
+
+        lang_combo = ttk.Combobox(box_lang, textvariable=lang_var, values=["Español", "English"], state="readonly", width=22)
+        lang_combo.pack(anchor="w", padx=4, pady=2)
+
+        # SECCION 2: Mandos virtuales a emular
+        box_mandos = ttk.LabelFrame(frame, text="⚙ Mandos Virtuales a Emular", padding=10)
+        box_mandos.pack(fill=tk.X, pady=(0, 8))
+
+        current_val = self.config.get("max_controllers", 8)
+        val_var = tk.IntVar(value=current_val)
+
+        val_display = ttk.Label(box_mandos, text=f"{current_val} Mandos", font=("Segoe UI", 10, "bold"), foreground="#0066cc")
+        val_display.pack(anchor="center", pady=(0, 2))
+
+        def on_slider(v):
+            ival = int(float(v))
+            val_var.set(ival)
+            val_display.config(text=f"{ival} Mandos")
+
+        slider = ttk.Scale(box_mandos, from_=1, to=12, orient=tk.HORIZONTAL, value=current_val, command=on_slider)
+        slider.pack(fill=tk.X, pady=2)
+
+        ticks_frame = ttk.Frame(box_mandos)
+        ticks_frame.pack(fill=tk.X)
+        ttk.Label(ticks_frame, text="1 Mando", font=("Segoe UI", 8)).pack(side=tk.LEFT)
+        ttk.Label(ticks_frame, text="6", font=("Segoe UI", 8)).pack(side=tk.LEFT, expand=True)
+        ttk.Label(ticks_frame, text="12 Mandos", font=("Segoe UI", 8)).pack(side=tk.RIGHT)
+
+        # SECCION 3: Integración con HidHide (Opcional)
+        box_hidhide = ttk.LabelFrame(frame, text="🛡 Integración con Nefarius HidHide (Opcional)", padding=10)
+        box_hidhide.pack(fill=tk.X, pady=(0, 8))
+
+        is_installed = self.driver_manager.is_hidhide_installed()
+        status_text = "✔ Instalado y Operativo" if is_installed else "⚠️ No Detectado / No Configurado"
+        status_color = "#16a34a" if is_installed else "#d97706"
+
+        status_lbl = ttk.Label(box_hidhide, text=f"Estado: {status_text}", font=("Segoe UI", 8, "bold"), foreground=status_color)
+        status_lbl.pack(anchor="w", pady=(0, 4))
+
+        ttk.Label(box_hidhide, text="Ruta de HidHideCLI.exe:", font=("Segoe UI", 8)).pack(anchor="w")
+
+        path_row = ttk.Frame(box_hidhide)
+        path_row.pack(fill=tk.X, pady=(2, 4))
+
+        current_path = self.driver_manager.get_hidhide_cli_path() or ""
+        path_var = tk.StringVar(value=current_path)
+        entry_path = ttk.Entry(path_row, textvariable=path_var, font=("Segoe UI", 8))
+        entry_path.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
+
+        def on_browse_hidhide():
+            chosen = filedialog.askopenfilename(
+                title="Seleccionar HidHideCLI.exe",
+                filetypes=[("HidHideCLI executable", "HidHideCLI.exe"), ("Todos los ejecutables", "*.exe"), ("Todos los archivos", "*.*")]
+            )
+            if chosen:
+                path_var.set(chosen)
+
+        btn_browse = ttk.Button(path_row, text="📂 Examinar...", command=on_browse_hidhide)
+        btn_browse.pack(side=tk.RIGHT)
+
+        # Opciones adicionales de HidHide
+        cloak_active_var = tk.BooleanVar(value=self.driver_manager.is_cloak_active() if is_installed else True)
+        chk_cloak = ttk.Checkbutton(box_hidhide, text="Activar Ocultamiento Global de HidHide (Cloaking)", variable=cloak_active_var)
+        chk_cloak.pack(anchor="w", pady=2)
+
+        warn_suppressed = self.config.get("suppress_hidhide_warning", False)
+        show_warn_var = tk.BooleanVar(value=not warn_suppressed)
+        chk_warn = ttk.Checkbutton(box_hidhide, text="Mostrar advertencia al inicio si HidHide no se detecta", variable=show_warn_var)
+        chk_warn.pack(anchor="w", pady=2)
+
+        def apply_settings():
+            # 1. Aplicar idioma
+            new_lang = "es" if lang_var.get() == "Español" else "en"
+            self.config["language"] = new_lang
+            self.config["author"] = "JuanJSAR"
+
+            # 2. Aplicar mandos
+            new_count = val_var.get()
+            self.config["max_controllers"] = new_count
+
+            # 3. Aplicar configuración de HidHide
+            cli_path = path_var.get().strip()
+            self.config["hidhide_cli_path"] = cli_path
+            self.config["suppress_hidhide_warning"] = not show_warn_var.get()
+            self.driver_manager.update_config(self.config)
+
+            if self.driver_manager.is_hidhide_installed():
+                self.driver_manager.set_cloak_active(cloak_active_var.get())
+                self.driver_manager.ensure_process_whitelisted()
+
+            self._sync_ui_to_config()
+            self._rebuild_tabs(new_count)
+            self.save_config(silent=True)
+            self._update_ui_texts()
+            dlg.destroy()
+            messagebox.showinfo(self.t("set_dlg_title"), self.t("set_saved"))
+
+        btn_box = ttk.Frame(frame)
+        btn_box.pack(fill=tk.X, side=tk.BOTTOM, pady=(8, 0))
+
+        ttk.Button(btn_box, text="✔ " + self.t("set_btn_save"), command=apply_settings).pack(side=tk.RIGHT, padx=4)
+        ttk.Button(btn_box, text=self.t("set_btn_cancel"), command=dlg.destroy).pack(side=tk.RIGHT, padx=4)
+
+    def _open_devices_dialog(self):
+        """Ventana modal estilo x360ce para listar y administrar DirectInput Devices."""
+        has_hidhide = self.driver_manager.is_hidhide_installed()
+
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Direct Input Devices")
+        dlg.geometry("860x440")
+        dlg.resizable(True, True)
+        dlg.transient(self.root)
+        dlg.grab_set()
+
+        x = max(0, self.root.winfo_x() + (self.root.winfo_width() // 2) - 430)
+        y = max(0, self.root.winfo_y() + (self.root.winfo_height() // 2) - 220)
+        dlg.geometry(f"+{x}+{y}")
+
+        main_f = ttk.Frame(dlg, padding=8)
+        main_f.pack(fill=tk.BOTH, expand=True)
+
+        # Encabezado superior
+        top_header = ttk.Frame(main_f)
+        top_header.pack(fill=tk.X, pady=(0, 6))
+
+        header_lbl = ttk.Label(
+            top_header,
+            text="Direct Input Devices - everything this program can read and map",
+            font=("Segoe UI", 10, "bold")
+        )
+        header_lbl.pack(side=tk.LEFT, padx=2)
+
+        # Barra de herramientas superior (Refresh, Hardware, Ocultar, Mostrar)
+        btn_refresh = ttk.Button(top_header, text="🔄 Refresh", command=lambda: populate_tree())
+        btn_refresh.pack(side=tk.RIGHT, padx=2)
+
+        btn_hw = ttk.Button(top_header, text="🛠 Hardware...", command=lambda: inspect_selected_device())
+        btn_hw.pack(side=tk.RIGHT, padx=2)
+
+        btn_unhide = ttk.Button(top_header, text="🔓 Mantener Visible", command=lambda: unhide_selected_device(), state=tk.DISABLED)
+        btn_unhide.pack(side=tk.RIGHT, padx=2)
+
+        btn_hide = ttk.Button(top_header, text="🔒 Ocultar al Emular", command=lambda: hide_selected_device(), state=tk.DISABLED)
+        btn_hide.pack(side=tk.RIGHT, padx=2)
+
+        # Tabla Treeview con columna HidHide agregada
+        cols = ("xinput", "type", "state", "instance_id", "hidhide", "vendor", "product")
+        tree = ttk.Treeview(main_f, columns=cols, show="headings", selectmode="browse")
+
+        tree.heading("xinput", text="XInput")
+        tree.heading("type", text="Tipo")
+        tree.heading("state", text="Estado")
+        tree.heading("instance_id", text="Instance ID")
+        tree.heading("hidhide", text="HidHide")
+        tree.heading("vendor", text="Vendor Name")
+        tree.heading("product", text="Product Name")
+
+        tree.column("xinput", width=90, anchor="center")
+        tree.column("type", width=65, anchor="center")
+        tree.column("state", width=75, anchor="center")
+        tree.column("instance_id", width=95, anchor="center")
+        tree.column("hidhide", width=125, anchor="center")
+        tree.column("vendor", width=190, anchor="w")
+        tree.column("product", width=190, anchor="w")
+
+        tree_scroll = ttk.Scrollbar(main_f, orient=tk.VERTICAL, command=tree.yview)
+        tree.configure(yscrollcommand=tree_scroll.set)
+
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        def update_button_states():
+            if not has_hidhide:
+                btn_hide.config(state=tk.DISABLED)
+                btn_unhide.config(state=tk.DISABLED)
+                return
+
+            selected = tree.selection()
+            if not selected:
+                btn_hide.config(state=tk.DISABLED)
+                btn_unhide.config(state=tk.DISABLED)
+                return
+
+            item = tree.item(selected[0])
+            tags = item.get("tags", [])
+            dev_id = tags[0] if tags else ""
+            dev = next((d for d in self.available_devices if d["id"] == dev_id), None)
+
+            if dev and dev.get("instance_path"):
+                inst_path = dev.get("instance_path")
+                is_marked = inst_path in self.config.get("hidden_devices", [])
+                if is_marked or dev.get("is_hidden"):
+                    btn_hide.config(state=tk.DISABLED)
+                    btn_unhide.config(state=tk.NORMAL)
+                else:
+                    btn_hide.config(state=tk.NORMAL)
+                    btn_unhide.config(state=tk.DISABLED)
+            else:
+                btn_hide.config(state=tk.DISABLED)
+                btn_unhide.config(state=tk.DISABLED)
+
+        def populate_tree():
+            for item in tree.get_children():
+                tree.delete(item)
+
+            self.available_devices = self.device_manager.refresh_devices()
+
+            # Mapear qué periférico está asignado a qué Virtual pad
+            assigned_map = {}
+            for pad_id in range(1, self.config.get("max_controllers", 12) + 1):
+                p_cfg = self.config.get("controllers", {}).get(str(pad_id), {})
+                p_dev = p_cfg.get("physical_device_id", "none")
+                if p_dev and p_dev != "none":
+                    if p_dev not in assigned_map:
+                        assigned_map[p_dev] = []
+                    assigned_map[p_dev].append(f"Virtual {pad_id}")
+
+            for dev in self.available_devices:
+                if dev["id"] == "none":
+                    continue
+
+                xinput_str = ", ".join(assigned_map.get(dev["id"], []))
+                conn_icon = "🔌 USB" if dev["conn_type"] == "USB" else ("📶 BT" if dev["conn_type"] == "BT" else "⌨️ SYS")
+                status_str = "✔ Conectado"
+
+                inst_path = dev.get("instance_path")
+                is_marked = inst_path and (inst_path in self.config.get("hidden_devices", []))
+
+                if not has_hidhide:
+                    hidhide_str = "No disponible"
+                elif dev.get("type") != "joystick" or not inst_path:
+                    hidhide_str = "N/A"
+                elif is_marked:
+                    if self.engine.is_running():
+                        hidhide_str = "🚫 Oculto (Emulando)"
+                    else:
+                        hidhide_str = "🔒 Ocultar al Emular"
+                elif dev.get("is_hidden"):
+                    hidhide_str = "🚫 Oculto (Sistema)"
+                else:
+                    hidhide_str = "👁 Visible"
+
+                tree.insert(
+                    "",
+                    tk.END,
+                    values=(
+                        xinput_str,
+                        conn_icon,
+                        status_str,
+                        dev.get("instance_id", "N/A"),
+                        hidhide_str,
+                        dev.get("vendor_name", "(Dispositivos de sistema estándar)"),
+                        dev.get("product_name", dev.get("name", "Dispositivo"))
+                    ),
+                    tags=(dev["id"],)
+                )
+
+            update_button_states()
+
+        def inspect_selected_device():
+            selected = tree.selection()
+            if not selected:
+                messagebox.showinfo("Hardware", "Selecciona un dispositivo de la lista para ver su información de hardware.")
+                return
+            item = tree.item(selected[0])
+            tags = item.get("tags", [])
+            dev_id = tags[0] if tags else ""
+            dev = next((d for d in self.available_devices if d["id"] == dev_id), None)
+            if not dev:
+                return
+
+            inst_path = dev.get("instance_path")
+            is_marked = inst_path and (inst_path in self.config.get("hidden_devices", []))
+
+            if not has_hidhide:
+                hidhide_state = "No disponible (HidHide no instalado)"
+            elif is_marked and self.engine.is_running():
+                hidhide_state = "🚫 Oculto (Emulación activa)"
+            elif is_marked:
+                hidhide_state = "🔒 Marcado para ocultar al emular"
+            elif dev.get("is_hidden"):
+                hidhide_state = "🚫 Oculto (Directo en HidHide)"
+            else:
+                hidhide_state = "👁 Visible (Todo el sistema)"
+
+            info_text = (
+                f"Nombre del Producto: {dev.get('product_name', 'N/A')}\n"
+                f"Fabricante / Vendor: {dev.get('vendor_name', 'N/A')}\n"
+                f"Instance ID: {dev.get('instance_id', 'N/A')}\n"
+                f"Estado HidHide: {hidhide_state}\n"
+                f"Ruta de Instancia PnP: {inst_path or 'N/A'}\n"
+                f"Tipo de Conexión: {dev.get('conn_type', 'N/A')}\n"
+                f"VID: 0x{dev.get('vid', '0000')} | PID: 0x{dev.get('pid', '0000')}\n"
+                f"Botones Físicos: {dev.get('num_buttons', 'N/A')}\n"
+                f"Ejes Analógicos: {dev.get('num_axes', 'N/A')}\n"
+                f"Crucetas (Hats): {dev.get('num_hats', 'N/A')}\n"
+                f"GUID SDL: {dev.get('guid', 'N/A')}"
+            )
+            messagebox.showinfo(f"Propiedades de Hardware - {dev.get('product_name')}", info_text)
+
+        def hide_selected_device():
+            if not has_hidhide:
+                return
+
+            selected = tree.selection()
+            if not selected:
+                messagebox.showinfo("HidHide", "Selecciona un dispositivo de la lista.")
+                return
+            item = tree.item(selected[0])
+            tags = item.get("tags", [])
+            dev_id = tags[0] if tags else ""
+            dev = next((d for d in self.available_devices if d["id"] == dev_id), None)
+            if not dev:
+                return
+
+            inst_path = dev.get("instance_path")
+            if not inst_path:
+                messagebox.showwarning("HidHide", "Este dispositivo no tiene una ruta de hardware PnP asociada para ocultar.")
+                return
+
+            hidden_list = self.config.setdefault("hidden_devices", [])
+            if inst_path not in hidden_list:
+                hidden_list.append(inst_path)
+                self.save_config()
+
+            if self.engine.is_running():
+                self.driver_manager.hide_device(inst_path)
+                messagebox.showinfo(
+                    "HidHide",
+                    f"¡Dispositivo configurado y ocultado!\n\n"
+                    f"'{dev.get('product_name')}' ha sido ocultado de inmediato porque la emulación está activa."
+                )
+            else:
+                messagebox.showinfo(
+                    "HidHide",
+                    f"¡Dispositivo marcado!\n\n"
+                    f"'{dev.get('product_name')}' se ocultará automáticamente cuando inicies la emulación con '▶ Iniciar Emulación'."
+                )
+            populate_tree()
+
+        def unhide_selected_device():
+            if not has_hidhide:
+                return
+
+            selected = tree.selection()
+            if not selected:
+                messagebox.showinfo("HidHide", "Selecciona un dispositivo de la lista.")
+                return
+            item = tree.item(selected[0])
+            tags = item.get("tags", [])
+            dev_id = tags[0] if tags else ""
+            dev = next((d for d in self.available_devices if d["id"] == dev_id), None)
+            if not dev:
+                return
+
+            inst_path = dev.get("instance_path")
+            if not inst_path:
+                messagebox.showwarning("HidHide", "Este dispositivo no tiene una ruta de hardware PnP asociada.")
+                return
+
+            hidden_list = self.config.setdefault("hidden_devices", [])
+            if inst_path in hidden_list:
+                hidden_list.remove(inst_path)
+                self.save_config()
+
+            self.driver_manager.unhide_device(inst_path)
+            messagebox.showinfo(
+                "HidHide",
+                f"¡Dispositivo configurado como visible!\n\n"
+                f"'{dev.get('product_name')}' se mantendrá visible para todo el sistema."
+            )
+            populate_tree()
+
+        tree.bind("<<TreeviewSelect>>", lambda e: update_button_states())
+
+        populate_tree()
+
+        # Boton inferior para asignar al mando actual
+        bottom_box = ttk.Frame(main_f)
+        bottom_box.pack(fill=tk.X, pady=(6, 0))
+
+        def assign_to_current_tab():
+            selected = tree.selection()
+            if not selected:
+                messagebox.showinfo("Asignar", "Selecciona un dispositivo de la lista.")
+                return
+            item = tree.item(selected[0])
+            tags = item.get("tags", [])
+            if not tags:
+                return
+            dev_id = tags[0]
+
+            cur_pad_id = self.notebook.index(self.notebook.select()) + 1
+            if cur_pad_id in self.tab_widgets:
+                cb = self.tab_widgets[cur_pad_id]["dev_combo"]
+                for idx, d in enumerate(self.available_devices):
+                    if d["id"] == dev_id:
+                        cb.current(idx)
+                        self._on_device_selected(cur_pad_id)
+                        break
+            populate_tree()
+            messagebox.showinfo("Asignación", f"¡Dispositivo asignado exitosamente al Control {cur_pad_id}!")
+
+        ttk.Button(bottom_box, text="🎯 Asignar al Control Actual", command=assign_to_current_tab).pack(side=tk.LEFT, padx=4)
+
+        hidhide_status_text = "🛡️ HidHide: Activo (Puedes ocultar periféricos)" if has_hidhide else "⚠️ HidHide: No instalado (Opciones de ocultamiento deshabilitadas)"
+        hidhide_status_color = "#008800" if has_hidhide else "#888888"
+        lbl_hid_status = ttk.Label(bottom_box, text=hidhide_status_text, font=("Segoe UI", 8, "italic"), foreground=hidhide_status_color)
+        lbl_hid_status.pack(side=tk.LEFT, padx=8)
+
+        ttk.Button(bottom_box, text="Cerrar", command=dlg.destroy).pack(side=tk.RIGHT, padx=4)
+
+    def _open_copy_dialog(self, source_pad_id: int):
+        self._sync_ui_to_config()
+        src_cfg = self.config.get("controllers", {}).get(str(source_pad_id), {})
+        src_maps = json.loads(json.dumps(src_cfg.get("mappings", {})))
+        src_calib = json.loads(json.dumps(src_cfg.get("calibration", {})))
+
+        max_ctrls = self.config.get("max_controllers", 12)
+
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Copiar Configuración")
+        dlg.geometry("400x240")
+        dlg.resizable(False, False)
+        dlg.transient(self.root)
+        dlg.grab_set()
+
+        x = max(0, self.root.winfo_x() + (self.root.winfo_width() // 2) - 200)
+        y = max(0, self.root.winfo_y() + (self.root.winfo_height() // 2) - 120)
+        dlg.geometry(f"+{x}+{y}")
+
+        frame = ttk.Frame(dlg, padding=12)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(frame, text=f"📋 Copiar Mapeo desde: Control {source_pad_id}", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 6))
+
+        ttk.Label(frame, text="Mando Destino:").pack(anchor="w")
+        dest_options = [f"Todos los demás mandos (1 al {max_ctrls})"] + [f"Control {i}" for i in range(1, max_ctrls + 1) if i != source_pad_id]
+        dest_var = tk.StringVar(value=dest_options[0])
+        cb_dest = ttk.Combobox(frame, values=dest_options, textvariable=dest_var, state="readonly", font=("Segoe UI", 9))
+        cb_dest.pack(fill=tk.X, pady=4)
+
+        inc_calib_var = tk.BooleanVar(value=True)
+        chk_calib = ttk.Checkbutton(frame, text="Incluir calibración (Deadzone, Anti-Deadzone, Sensibilidad)", variable=inc_calib_var)
+        chk_calib.pack(anchor="w", pady=6)
+
+        note_lbl = ttk.Label(frame, text="ℹ️ El periférico físico asignado a cada mando se conservará intacto.", font=("Segoe UI", 8, "italic"), foreground="#555555")
+        note_lbl.pack(anchor="w", pady=(0, 10))
+
+        btn_box = ttk.Frame(frame)
+        btn_box.pack(fill=tk.X, side=tk.BOTTOM)
+
+        def do_copy():
+            choice = dest_var.get()
+            target_ids = []
+            if choice.startswith("Todos"):
+                target_ids = [i for i in range(1, max_ctrls + 1) if i != source_pad_id]
+            else:
+                try:
+                    t_id = int(choice.split()[1])
+                    target_ids = [t_id]
+                except Exception:
+                    pass
+
+            for tid in target_ids:
+                str_tid = str(tid)
+                if str_tid not in self.config.get("controllers", {}):
+                    self.config["controllers"][str_tid] = {}
+                self.config["controllers"][str_tid]["mappings"] = json.loads(json.dumps(src_maps))
+                if inc_calib_var.get():
+                    self.config["controllers"][str_tid]["calibration"] = json.loads(json.dumps(src_calib))
+
+                if tid in self.tab_widgets:
+                    t_w = self.tab_widgets[tid]
+                    for target, cb in t_w.get("combos", {}).items():
+                        cb.set(src_maps.get(target, "-- Ninguno --"))
+                    if inc_calib_var.get():
+                        c_w = t_w.get("calib", {})
+                        for k in ["left_trigger", "right_trigger"]:
+                            if k in c_w and k in src_calib:
+                                for vkey, dkey, def_v in [("dz_var", "deadzone", 0), ("adz_var", "anti_deadzone", 0), ("sens_var", "sensitivity", 0)]:
+                                    val = src_calib[k].get(dkey, def_v)
+                                    c_w[k][vkey].set(val)
+                                    if f"{vkey}_scale" in c_w[k]: c_w[k][f"{vkey}_scale"].set(round(val))
+                                    if f"{vkey}_entry" in c_w[k]: c_w[k][f"{vkey}_entry"].set(f"{val:g}")
+                                c_w[k]["inv_var"].set(src_calib[k].get("invert", False))
+                        for k in ["left_stick", "right_stick"]:
+                            if k in c_w and k in src_calib:
+                                for vkey, dkey, def_v in [("dz_var", "deadzone", 8), ("adz_var", "anti_deadzone", 0), ("sens_var", "sensitivity", 0)]:
+                                    val = src_calib[k].get(dkey, def_v)
+                                    c_w[k][vkey].set(val)
+                                    if f"{vkey}_scale" in c_w[k]: c_w[k][f"{vkey}_scale"].set(round(val))
+                                    if f"{vkey}_entry" in c_w[k]: c_w[k][f"{vkey}_entry"].set(f"{val:g}")
+                                c_w[k]["inv_x_var"].set(src_calib[k].get("invert_x", False))
+                                c_w[k]["inv_y_var"].set(src_calib[k].get("invert_y", False))
+
+            self.engine.set_config(self.config)
+            dlg.destroy()
+            dest_msg = "todos los demás mandos" if choice.startswith("Todos") else choice
+            messagebox.showinfo("Copia Exitosa", f"¡Configuración de botones copiada con éxito a {dest_msg}!\n\nSolo debes asignar el periférico físico a cada control.")
+
+        btn_ok = ttk.Button(btn_box, text="✔ Copiar Configuración", command=do_copy)
+        btn_ok.pack(side=tk.RIGHT, padx=4)
+
+        btn_cancel = ttk.Button(btn_box, text="Cancelar", command=dlg.destroy)
+        btn_cancel.pack(side=tk.RIGHT, padx=4)
+
+    def _open_joy_cpl(self):
+        try:
+            flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+            subprocess.Popen(["joy.cpl"], shell=True, creationflags=flags)
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo abrir joy.cpl: {e}")
+
+    def _draw_trigger_graph(self, cv: tk.Canvas, dz: int, adz: int, sens: int, inv: bool, raw_val: float, out_byte: int):
+        cv.delete("all")
+        w = cv.winfo_width()
+        h = cv.winfo_height()
+        if w < 10 or h < 10:
+            w, h = int(cv.cget("width")), int(cv.cget("height"))
+
+        pad = 10
+        gw = max(10, w - 2 * pad)
+        gh = max(10, h - 2 * pad)
+
+        cv.create_rectangle(pad, pad, pad + gw, pad + gh, fill="#fdfdfd", outline="#dddddd")
+        cv.create_line(pad, pad + gh, pad + gw, pad + gh, fill="#aaaaaa")
+        cv.create_line(pad, pad, pad, pad + gh, fill="#aaaaaa")
+
+        points = []
+        steps = 25
+        for i in range(steps + 1):
+            t = i / steps
+            out_v = apply_trigger_calibration(t, dz, adz, sens, inv)
+            px = pad + t * gw
+            py = (pad + gh) - (out_v * gh)
+            points.extend([px, py])
+
+        if len(points) >= 4:
+            cv.create_line(points, fill="#e62e2e", width=2)
+
+        dot_x = pad + max(0.0, min(1.0, raw_val)) * gw
+        dot_y = (pad + gh) - ((out_byte / 255.0) * gh)
+        cv.create_line(dot_x, pad, dot_x, pad + gh, fill="#39ff14", dash=(2, 2))
+        cv.create_oval(dot_x - 3, dot_y - 3, dot_x + 3, dot_y + 3, fill="#00aa00", outline="#ffffff", width=1)
+
+    def _draw_stick_canvas(self, cv: tk.Canvas, dz: int, adz: int, x_val: float, y_val: float):
+        cv.delete("all")
+        w = cv.winfo_width()
+        h = cv.winfo_height()
+        if w < 10 or h < 10:
+            w, h = int(cv.cget("width")), int(cv.cget("height"))
+
+        cx, cy = w // 2, h // 2
+        r_max = (min(w, h) // 2) - 8
+
+        cv.create_rectangle(4, 4, w - 4, h - 4, fill="#fafafa", outline="#e0e0e0")
+        cv.create_line(cx, 4, cx, h - 4, fill="#dddddd")
+        cv.create_line(4, cy, w - 4, cy, fill="#dddddd")
+        cv.create_oval(cx - r_max, cy - r_max, cx + r_max, cy + r_max, outline="#cccccc", width=1)
+
+        dz_r = r_max * (dz / 100.0)
+        if dz_r > 1:
+            cv.create_oval(cx - dz_r, cy - dz_r, cx + dz_r, cy + dz_r, fill="#ffeeee", outline="#ff9999", dash=(2, 2))
+
+        adz_r = r_max * (adz / 100.0)
+        if adz_r > 1:
+            cv.create_oval(cx - adz_r, cy - adz_r, cx + adz_r, cy + adz_r, outline="#99bbff", dash=(2, 2))
+
+        dot_x = cx + max(-1.0, min(1.0, x_val)) * r_max
+        dot_y = cy - max(-1.0, min(1.0, y_val)) * r_max
+        cv.create_oval(dot_x - 3, dot_y - 3, dot_x + 3, dot_y + 3, fill="#00bb00", outline="#ffffff", width=1)
+
+    def _draw_stick_curve(self, cv: tk.Canvas, dz: int, adz: int, sens: int, raw_mag: float, out_mag: float):
+        cv.delete("all")
+        w = cv.winfo_width()
+        h = cv.winfo_height()
+        if w < 10 or h < 10:
+            w, h = int(cv.cget("width")), int(cv.cget("height"))
+
+        pad = 10
+        gw = max(10, w - 2 * pad)
+        gh = max(10, h - 2 * pad)
+
+        cv.create_rectangle(pad, pad, pad + gw, pad + gh, fill="#fdfdfd", outline="#dddddd")
+        cv.create_line(pad, pad + gh, pad + gw, pad + gh, fill="#aaaaaa")
+        cv.create_line(pad, pad, pad, pad + gh, fill="#aaaaaa")
+
+        points = []
+        steps = 25
+        for i in range(steps + 1):
+            t = i / steps
+            out_v = apply_axis_calibration(t, dz, adz, sens, invert=False)
+            px = pad + t * gw
+            py = (pad + gh) - (out_v * gh)
+            points.extend([px, py])
+
+        if len(points) >= 4:
+            cv.create_line(points, fill="#e62e2e", width=2)
+
+        dot_x = pad + max(0.0, min(1.0, raw_mag)) * gw
+        dot_y = (pad + gh) - (max(0.0, min(1.0, out_mag)) * gh)
+        cv.create_line(dot_x, pad, dot_x, pad + gh, fill="#39ff14", dash=(2, 2))
+        cv.create_oval(dot_x - 3, dot_y - 3, dot_x + 3, dot_y + 3, fill="#00aa00", outline="#ffffff", width=1)
+
+    def _update_loop(self):
+        try:
+            cur_pad_id = self.notebook.index(self.notebook.select()) + 1
+            widgets = self.tab_widgets.get(cur_pad_id)
+
+            if widgets:
+                # Si la emulacion no esta activa, computamos el estado en tiempo real
+                # para que los controles respondan y se iluminen inmediatamente al probar
+                if self.engine.is_running():
+                    state = self.engine.get_active_state(cur_pad_id)
+                else:
+                    state = self.engine.compute_controller_state(cur_pad_id)
+
+                canvas = widgets.get("canvas")
+                leds = widgets.get("leds", {})
+                rec_ind = widgets.get("rec_indicators", {})
+
+                # 1. Comprobar si hay una tecla/boton en proceso de asignacion
+                rec_canvas_key = None
+                if self.recording_target:
+                    rec_pad, rec_name, _ = self.recording_target
+                    if rec_pad == cur_pad_id:
+                        rec_canvas_key = map_target_to_canvas_key(rec_name)
+
+                # Animacion llamativa del boton en modo ASIGNACION (halo pulsante ambar/rojo)
+                if canvas and rec_ind:
+                    if rec_canvas_key and rec_canvas_key in CANVAS_POINTS:
+                        cx, cy, r = CANVAS_POINTS[rec_canvas_key]
+                        t = time.time()
+                        pulse = (math.sin(t * 10) + 1.0) / 2.0  # 0..1 oscila a ~1.6 Hz
+                        halo_r = r + 3 + int(pulse * 5)
+                        halo_col = "#ff3300" if pulse > 0.45 else "#ff9900"
+                        canvas.coords(rec_ind["halo"], cx - halo_r, cy - halo_r, cx + halo_r, cy + halo_r)
+                        canvas.itemconfig(rec_ind["halo"], state="normal", outline=halo_col, width=3)
+
+                        canvas.coords(rec_ind["core"], cx - r, cy - r, cx + r, cy + r)
+                        canvas.itemconfig(rec_ind["core"], state="normal", fill="#ffaa00", outline="#ffffff", width=2)
+                    else:
+                        canvas.itemconfig(rec_ind["halo"], state="hidden")
+                        canvas.itemconfig(rec_ind["core"], state="hidden")
+
+                # 2. Indicadores reactivos de botones OPRIMIDOS (verde neon brillante con halo)
+                if canvas and leds:
+                    pressed_btns = state.get("buttons", set())
+                    for btn_name, (tag, glow) in leds.items():
+                        is_active = False
+                        if btn_name in pressed_btns:
+                            is_active = True
+                        elif btn_name == "LEFT_TRIGGER" and (state.get("lt", 0) > 25 or "LEFT_TRIGGER" in pressed_btns):
+                            is_active = True
+                        elif btn_name == "RIGHT_TRIGGER" and (state.get("rt", 0) > 25 or "RIGHT_TRIGGER" in pressed_btns):
+                            is_active = True
+                        elif btn_name == "LEFT_STICK_UP" and (state.get("ly", 0.0) < -0.2 or "LEFT_STICK_UP" in pressed_btns):
+                            is_active = True
+                        elif btn_name == "LEFT_STICK_DOWN" and (state.get("ly", 0.0) > 0.2 or "LEFT_STICK_DOWN" in pressed_btns):
+                            is_active = True
+                        elif btn_name == "LEFT_STICK_LEFT" and (state.get("lx", 0.0) < -0.2 or "LEFT_STICK_LEFT" in pressed_btns):
+                            is_active = True
+                        elif btn_name == "LEFT_STICK_RIGHT" and (state.get("lx", 0.0) > 0.2 or "LEFT_STICK_RIGHT" in pressed_btns):
+                            is_active = True
+                        elif btn_name == "LEFT_THUMB" and ("LEFT_THUMB" in pressed_btns):
+                            is_active = True
+                        elif btn_name == "RIGHT_STICK_UP" and (state.get("ry", 0.0) < -0.2 or "RIGHT_STICK_UP" in pressed_btns):
+                            is_active = True
+                        elif btn_name == "RIGHT_STICK_DOWN" and (state.get("ry", 0.0) > 0.2 or "RIGHT_STICK_DOWN" in pressed_btns):
+                            is_active = True
+                        elif btn_name == "RIGHT_STICK_LEFT" and (state.get("rx", 0.0) < -0.2 or "RIGHT_STICK_LEFT" in pressed_btns):
+                            is_active = True
+                        elif btn_name == "RIGHT_STICK_RIGHT" and (state.get("rx", 0.0) > 0.2 or "RIGHT_STICK_RIGHT" in pressed_btns):
+                            is_active = True
+                        elif btn_name == "RIGHT_THUMB" and ("RIGHT_THUMB" in pressed_btns):
+                            is_active = True
+
+                        new_state = "normal" if is_active else "hidden"
+                        canvas.itemconfig(tag, state=new_state)
+                        canvas.itemconfig(glow, state=new_state)
+                        if is_active:
+                            canvas.tag_raise(glow)
+                            canvas.tag_raise(tag)
+
+                # 2. Triggers
+                c_w = widgets.get("calib", {})
+                for trig_key, raw_k, out_k in [("left_trigger", "lt_raw", "lt"), ("right_trigger", "rt_raw", "rt")]:
+                    if trig_key in c_w:
+                        tw = c_w[trig_key]
+                        dz = tw["dz_var"].get()
+                        adz = tw["adz_var"].get()
+                        sens = tw["sens_var"].get()
+                        inv = tw["inv_var"].get()
+
+                        raw_val = state.get(raw_k, 0.0)
+                        out_byte = state.get(out_k, 0)
+
+                        self._draw_trigger_graph(tw["canvas"], dz, adz, sens, inv, raw_val, out_byte)
+                        tw["lbl_di_xi"].config(text=f"DI: {int(raw_val * 32767):5d}    XI: {out_byte:3d}")
+
+                # 3. Sticks
+                for stick_key, rx_k, ry_k, cx_k, cy_k in [
+                    ("left_stick", "lx_raw", "ly_raw", "lx", "ly"),
+                    ("right_stick", "rx_raw", "ry_raw", "rx", "ry")
+                ]:
+                    if stick_key in c_w:
+                        sw = c_w[stick_key]
+                        dz = sw["dz_var"].get()
+                        adz = sw["adz_var"].get()
+                        sens = sw["sens_var"].get()
+
+                        raw_x = state.get(rx_k, 0.0)
+                        raw_y = state.get(ry_k, 0.0)
+                        cal_x = state.get(cx_k, 0.0)
+                        cal_y = state.get(cy_k, 0.0)
+
+                        # En representacion visual cartesiana (tipo Xbox/x360ce):
+                        # Arriba es +Y y Abajo es -Y. En Pygame Y hacia arriba es negativo, por lo que invertimos para la visualizacion 2D
+                        disp_y = -cal_y
+
+                        self._draw_stick_canvas(sw["canvas"], dz, adz, cal_x, disp_y)
+                        sw["lbl_xy"].config(text=f"X: {cal_x:+0.2f}  Y: {disp_y:+0.2f}")
+
+                        raw_mag = min(1.0, math.sqrt(raw_x**2 + raw_y**2))
+                        out_mag = min(1.0, math.sqrt(cal_x**2 + cal_y**2))
+                        self._draw_stick_curve(sw["curve_canvas"], dz, adz, sens, raw_mag, out_mag)
+                        sw["lbl_di_xi"].config(text=f"DI: {int(raw_mag * 32767):5d}    XI: {int(out_mag * 32767):5d}")
+
+        except Exception:
+            pass
+
+        self.root.after(30, self._update_loop)
+
+    def _on_close(self):
+        if self.engine.is_running():
+            self.engine.stop()
+            self._unhide_emulation_devices()
+        self.root.destroy()
+
+def run_gui():
+    root = tk.Tk()
+    app = J360MoreApp(root)
+    root.mainloop()
+
+if __name__ == "__main__":
+    run_gui()
