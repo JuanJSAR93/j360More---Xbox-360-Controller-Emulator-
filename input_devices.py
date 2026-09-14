@@ -318,7 +318,7 @@ class DeviceManager:
 
         return state
 
-    def capture_input(self, dev_id: str, timeout: float = 4.0) -> Optional[str]:
+    def capture_input(self, dev_id: str, timeout: float = 4.0, target_name: str = "") -> Optional[str]:
         """
         Escucha el proximo movimiento de boton, eje o cruceta en el dispositivo fisico indicado.
         Retorna la etiqueta del mapeo detectado (ej: 'Button 1', 'Axis 1+', 'POV 1 Up', etc.).
@@ -327,8 +327,6 @@ class DeviceManager:
             return None
 
         self._cancel_capture = False
-        self.pump_events()
-        time.sleep(0.04)
         self.pump_events()
 
         start_time = time.time()
@@ -352,6 +350,10 @@ class DeviceManager:
             except Exception:
                 pass
 
+        # Si el control objetivo es un eje analógico o gatillo, umbral de sensibilidad más reactivo
+        is_stick_target = any(k in target_name for k in ("STICK", "TRIGGER"))
+        axis_thresh = 0.35 if is_stick_target else 0.50
+
         while time.time() - start_time < timeout:
             if self._cancel_capture:
                 return None
@@ -361,10 +363,10 @@ class DeviceManager:
                 try:
                     joy = self.get_joystick(dev_id)
                     if not joy or not joy.get_init():
-                        time.sleep(0.05)
+                        time.sleep(0.01)
                         continue
 
-                    # 1. Chequear botones fisicos (prioridad absoluta para bumpers/botones)
+                    # 1. Chequear botones fisicos (prioridad instantanea al presionar)
                     for b in range(joy.get_numbuttons()):
                         if joy.get_button(b) and b not in baseline_buttons:
                             return f"Button {b + 1}"
@@ -382,12 +384,12 @@ class DeviceManager:
                             elif hx > 0:
                                 return f"POV {h + 1} Right"
 
-                    # 3. Chequear Ejes (SOLO por desplazamiento relativo real > 0.55 respecto al reposo)
+                    # 3. Chequear Ejes (por desplazamiento relativo respecto a la posición de reposo)
                     for a in range(joy.get_numaxes()):
                         curr = joy.get_axis(a)
                         prev = baseline_axes.get(a, 0.0)
                         diff = curr - prev
-                        if abs(diff) > 0.55:
+                        if abs(diff) > axis_thresh:
                             # Si el eje reposaba en negativo (-1.0 aprox, ej: gatillos) y se jala a positivo
                             if prev < -0.6 and curr > -0.2:
                                 return f"Axis {a + 1}+"
@@ -401,6 +403,6 @@ class DeviceManager:
                 except Exception:
                     pass
 
-            time.sleep(0.03)
+            time.sleep(0.01)
 
         return None

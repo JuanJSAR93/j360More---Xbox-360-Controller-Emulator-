@@ -20,7 +20,7 @@ from input_devices import DeviceManager
 from emulator_engine import EmulatorEngine, apply_axis_calibration, apply_trigger_calibration
 from i18n import get_text, get_target_name
 
-APP_VERSION = "1.0.8"
+APP_VERSION = "1.0.9"
 
 if getattr(sys, "frozen", False):
     EXE_DIR = os.path.dirname(sys.executable)
@@ -1200,7 +1200,7 @@ class J360MoreApp:
         threading.Thread(target=self._record_worker, args=(pad_id, target_name, dev_id, btn), daemon=True).start()
 
     def _record_worker(self, pad_id: int, target_name: str, dev_id: str, btn: ttk.Button):
-        detected = self.device_manager.capture_input(dev_id, timeout=4.5)
+        detected = self.device_manager.capture_input(dev_id, timeout=4.5, target_name=target_name)
 
         def finish():
             if self.recording_target and self.recording_target[0] == pad_id and self.recording_target[1] == target_name:
@@ -1953,7 +1953,6 @@ class J360MoreApp:
         dlg.geometry("670x505")
         dlg.resizable(False, False)
         dlg.transient(self.root)
-        dlg.grab_set()
 
         dlg.update_idletasks()
         pw = self.root.winfo_width()
@@ -1964,6 +1963,10 @@ class J360MoreApp:
         pos_x = max(0, px + (pw - dw) // 2)
         pos_y = max(0, py + (ph - dh) // 2)
         dlg.geometry(f"{dw}x{dh}+{pos_x}+{pos_y}")
+
+        dlg.lift()
+        dlg.focus_force()
+        dlg.grab_set()
 
         header_frame = ttk.Frame(dlg, padding="10 6 10 2")
         header_frame.pack(fill=tk.X)
@@ -2269,18 +2272,20 @@ class J360MoreApp:
             dlg.bind("<Escape>", lambda e: on_cancel())
 
         def capture_thread_func():
-            time.sleep(0.2)
+            time.sleep(0.1)
             while worker_state["active"]:
                 if worker_state["listening"] and dev_id.startswith("joy_"):
-                    det = self.device_manager.capture_input(dev_id, timeout=0.15)
+                    cur_tgt = worker_state.get("current_target", "")
+                    det = self.device_manager.capture_input(dev_id, timeout=0.08, target_name=cur_tgt)
                     if det and worker_state["active"] and worker_state["listening"]:
                         dlg.after(0, lambda d=det: on_detected(d))
-                        time.sleep(0.35)
-                time.sleep(0.04)
+                        time.sleep(0.2)
+                time.sleep(0.01)
 
         threading.Thread(target=capture_thread_func, daemon=True).start()
 
         update_ui_for_target(steps_queue[0])
+        dlg.after(50, lambda: dlg.focus_force())
 
 
     def _open_joy_cpl(self):
