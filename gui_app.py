@@ -20,6 +20,8 @@ from input_devices import DeviceManager
 from emulator_engine import EmulatorEngine, apply_axis_calibration, apply_trigger_calibration
 from i18n import get_text, get_target_name
 
+APP_VERSION = "1.0.1"
+
 if getattr(sys, "frozen", False):
     EXE_DIR = os.path.dirname(sys.executable)
     BUNDLE_DIR = getattr(sys, "_MEIPASS", EXE_DIR)
@@ -429,6 +431,15 @@ class J360MoreApp:
 
         self.btn_reset = ttk.Button(bottom_frame, text=self.t("btn_reset"), command=self._reset_current_preset)
         self.btn_reset.pack(side=tk.RIGHT, padx=4)
+
+        self.lbl_version = ttk.Label(
+            bottom_frame,
+            text=f"v{APP_VERSION}",
+            font=("Segoe UI", 9, "bold"),
+            foreground="#666666",
+            anchor="center"
+        )
+        self.lbl_version.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
     def _rebuild_tabs(self, count: int):
         # Guardar pestaña seleccionada actualmente si es posible
