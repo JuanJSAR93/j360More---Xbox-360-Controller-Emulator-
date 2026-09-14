@@ -140,6 +140,54 @@ class DeviceManager:
         present_pnp_paths = _get_present_pnp_device_instance_paths()
         hidden_paths = self.driver_manager.get_hidden_device_paths()
 
+        # Recopilar rutas candidatas PnP por (VID, PID)
+        import hashlib
+        import re
+        candidates_by_vid_pid: Dict[Tuple[str, str], List[str]] = {}
+
+        # 1. Prioridad: rutas directas de mandos reportadas por HidHide (dev-gaming)
+        gaming_devices = self.driver_manager.get_gaming_devices_info()
+        for g in gaming_devices:
+            p = g.get("instance_path", "").strip()
+            if p:
+                up = p.upper()
+                m_vid = re.search(r'VID[_\&]([0-9A-F]{4})', up)
+                m_pid = re.search(r'PID[_\&]([0-9A-F]{4})', up)
+                if m_vid and m_pid:
+                    key = (m_vid.group(1), m_pid.group(1))
+                    candidates_by_vid_pid.setdefault(key, []).append(p)
+
+        # 2. Complementar con rutas PnP presentes de clase HID
+        for p in present_pnp_paths:
+            up = p.upper()
+            if up.startswith("HID\\"):
+                m_vid = re.search(r'VID[_\&]([0-9A-F]{4})', up)
+                m_pid = re.search(r'PID[_\&]([0-9A-F]{4})', up)
+                if m_vid and m_pid:
+                    key = (m_vid.group(1), m_pid.group(1))
+                    pool = candidates_by_vid_pid.setdefault(key, [])
+                    if p not in pool:
+                        pool.append(p)
+
+        # 3. Fallback USB si no hay rutas HID para ese dispositivo
+        for p in present_pnp_paths:
+            up = p.upper()
+            if up.startswith("USB\\"):
+                m_vid = re.search(r'VID[_\&]([0-9A-F]{4})', up)
+                m_pid = re.search(r'PID[_\&]([0-9A-F]{4})', up)
+                if m_vid and m_pid:
+                    key = (m_vid.group(1), m_pid.group(1))
+                    pool = candidates_by_vid_pid.setdefault(key, [])
+                    if not any(x.upper().startswith("HID\\") for x in pool):
+                        if p not in pool:
+                            pool.append(p)
+
+        # Ordenar determinísticamente cada lista de candidatos
+        for key in candidates_by_vid_pid:
+            candidates_by_vid_pid[key] = sorted(candidates_by_vid_pid[key])
+
+        used_instance_paths: Set[str] = set()
+
         for i in range(count):
             try:
                 joy = pygame.joystick.Joystick(i)
@@ -174,21 +222,18 @@ class DeviceManager:
                 if "bluetooth" in name.lower() or "wireless" in name.lower() or "bth" in guid.lower():
                     conn_type = "BT"
 
-                # Instance ID determinista de 8 caracteres en hexadecimal tipo x360ce
-                raw_hash = hash(f"{guid}_{name}") & 0xFFFFFFFF
-                instance_id = f"{raw_hash:08X}"
-
-                # Correlacionar con la ruta de instancia PnP de Windows para HidHide
+                # Correlacionar con una ruta PnP única no utilizada previamente para HidHide
                 instance_path = ""
-                for p in present_pnp_paths:
-                    up = p.upper()
-                    if vid != "0000" and pid != "0000" and vid in up and pid in up:
-                        # Priorizar rutas directas HID o USB
-                        if up.startswith("HID\\") or up.startswith("USB\\"):
-                            instance_path = p
-                            break
-                        elif not instance_path:
-                            instance_path = p
+                pool = candidates_by_vid_pid.get((vid, pid), [])
+                for cand in pool:
+                    if cand not in used_instance_paths:
+                        instance_path = cand
+                        used_instance_paths.add(cand)
+                        break
+
+                # Instance ID determinista, consistente y único por dispositivo (8 hex chars)
+                id_seed = f"{guid}_{instance_path}" if instance_path else f"{guid}_{dev_id}_{phys_idx}"
+                instance_id = hashlib.sha256(id_seed.encode("utf-8")).hexdigest()[:8].upper()
 
                 is_hidden = False
                 if instance_path:
