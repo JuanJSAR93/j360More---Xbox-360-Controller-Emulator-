@@ -20,7 +20,7 @@ from input_devices import DeviceManager
 from emulator_engine import EmulatorEngine, apply_axis_calibration, apply_trigger_calibration
 from i18n import get_text, get_target_name
 
-APP_VERSION = "1.0.4"
+APP_VERSION = "1.0.5"
 
 if getattr(sys, "frozen", False):
     EXE_DIR = os.path.dirname(sys.executable)
@@ -2104,25 +2104,6 @@ class J360MoreApp:
             cv_zoom.create_line(120 + 32, 120, 120 + 45, 120, fill="#ff2200", width=2)
             cv_zoom.create_line(120, 120 - 45, 120, 120 - 32, fill="#ff2200", width=2)
             cv_zoom.create_line(120, 120 + 32, 120, 120 + 45, fill="#ff2200", width=2)
-
-            if "STICK_X" in tgt:
-                cv_zoom.create_line(35, 210, 205, 210, fill="#cc0000", width=4, arrow=tk.BOTH, arrowshape=(10, 12, 5))
-                cv_zoom.create_text(120, 225, text="◄  EJE X (Horizontal)  ►", fill="#cc0000", font=("Segoe UI", 9, "bold"))
-            elif "STICK_Y" in tgt:
-                cv_zoom.create_line(215, 35, 215, 205, fill="#cc0000", width=4, arrow=tk.BOTH, arrowshape=(10, 12, 5))
-                cv_zoom.create_text(120, 225, text="▲  EJE Y (Vertical)  ▼", fill="#cc0000", font=("Segoe UI", 9, "bold"))
-            elif "UP" in tgt:
-                cv_zoom.create_line(120, 195, 120, 155, fill="#cc0000", width=4, arrow=tk.LAST, arrowshape=(10, 12, 5))
-                cv_zoom.create_text(120, 225, text="▲ ARRIBA", fill="#cc0000", font=("Segoe UI", 9, "bold"))
-            elif "DOWN" in tgt:
-                cv_zoom.create_line(120, 155, 120, 195, fill="#cc0000", width=4, arrow=tk.LAST, arrowshape=(10, 12, 5))
-                cv_zoom.create_text(120, 225, text="▼ ABAJO", fill="#cc0000", font=("Segoe UI", 9, "bold"))
-            elif "LEFT" in tgt:
-                cv_zoom.create_line(140, 120, 95, 120, fill="#cc0000", width=4, arrow=tk.LAST, arrowshape=(10, 12, 5))
-                cv_zoom.create_text(120, 225, text="◄ IZQUIERDA", fill="#cc0000", font=("Segoe UI", 9, "bold"))
-            elif "RIGHT" in tgt:
-                cv_zoom.create_line(100, 120, 145, 120, fill="#cc0000", width=4, arrow=tk.LAST, arrowshape=(10, 12, 5))
-                cv_zoom.create_text(120, 225, text="► DERECHA", fill="#cc0000", font=("Segoe UI", 9, "bold"))
 
         def advance():
             nonlocal current_step_idx
