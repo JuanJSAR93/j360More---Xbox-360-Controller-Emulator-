@@ -1,0 +1,8 @@
+# robots.txt for j360More - Developed by JuanJSAR
+# https://juanjsar93.github.io/j360More-Xbox_360_Controller_Emulator/
+
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://juanjsar93.github.io/j360More-Xbox_360_Controller_Emulator/sitemap.xml
