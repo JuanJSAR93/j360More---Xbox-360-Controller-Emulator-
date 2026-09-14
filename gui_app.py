@@ -20,7 +20,7 @@ from input_devices import DeviceManager
 from emulator_engine import EmulatorEngine, apply_axis_calibration, apply_trigger_calibration
 from i18n import get_text, get_target_name
 
-APP_VERSION = "1.0.6"
+APP_VERSION = "1.0.7"
 
 if getattr(sys, "frozen", False):
     EXE_DIR = os.path.dirname(sys.executable)
@@ -189,8 +189,8 @@ class J360MoreApp:
         self.root.title(self.t("app_title"))
         self._setup_app_icon()
 
-        # Tamaño fijo compacto donde todo es visible sin espacio desperdiciado
-        self.root.geometry("980x580")
+        # Tamaño balanceado donde todo es visible cómodamente sin cortes
+        self.root.geometry("980x615")
         self.root.resizable(False, False)
 
         self.driver_manager = DriverManager(self.config)
@@ -433,18 +433,7 @@ class J360MoreApp:
         self.status_text_lbl = ttk.Label(status_container, text=self.t("status_stopped"), font=("Segoe UI", 8))
         self.status_text_lbl.pack(side=tk.LEFT)
 
-        # 2. Pestañas de controles (1 a 12 según max_controllers)
-        self.notebook = ttk.Notebook(self.root)
-        self.notebook.pack(fill=tk.BOTH, expand=True, padx=6, pady=2)
-
-        self.tab_frames = {}
-        self.tab_widgets = {}
-
-        self._rebuild_tabs(max_ctrls)
-
-        self.notebook.bind("<<NotebookTabChanged>>", lambda e: self._on_tab_changed())
-
-        # 3. Barra inferior compacta
+        # 2. Barra inferior compacta (se empaqueta primero al fondo para garantizar visibilidad)
         bottom_frame = ttk.Frame(self.root, padding="8 4 8 4")
         bottom_frame.pack(fill=tk.X, side=tk.BOTTOM)
 
@@ -468,6 +457,17 @@ class J360MoreApp:
             anchor="center"
         )
         self.lbl_version.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        # 3. Pestañas de controles (1 a 12 según max_controllers) que rellenan el espacio central
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=6, pady=2)
+
+        self.tab_frames = {}
+        self.tab_widgets = {}
+
+        self._rebuild_tabs(max_ctrls)
+
+        self.notebook.bind("<<NotebookTabChanged>>", lambda e: self._on_tab_changed())
 
     def _rebuild_tabs(self, count: int):
         # Guardar pestaña seleccionada actualmente si es posible
