@@ -6,6 +6,8 @@ import math
 import io
 import threading
 import subprocess
+import webbrowser
+import urllib.request
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from PIL import Image, ImageTk
@@ -21,6 +23,24 @@ from emulator_engine import EmulatorEngine, apply_axis_calibration, apply_trigge
 from i18n import get_text, get_target_name, SUPPORTED_LANGUAGES
 
 APP_VERSION = "1.1.0"
+
+def parse_version(v_str: str) -> tuple:
+    if not v_str:
+        return (0,)
+    clean = v_str.strip().lstrip("vV")
+    parts = []
+    for p in clean.split("."):
+        num = ""
+        for ch in p:
+            if ch.isdigit():
+                num += ch
+            else:
+                break
+        if num:
+            parts.append(int(num))
+        else:
+            break
+    return tuple(parts) if parts else (0,)
 
 if getattr(sys, "frozen", False):
     EXE_DIR = os.path.dirname(sys.executable)
@@ -216,6 +236,11 @@ class J360MoreApp:
         # Comprobar estado de drivers (ViGEmBus y aviso leve de HidHide)
         self.root.after(200, self._check_system_drivers)
 
+        # Verificacion asincrona de nueva version (una unica vez al iniciar)
+        self._update_checked = False
+        self._available_update_version = None
+        self.root.after(1500, self._check_update_once)
+
         self.root.bind("<KeyPress>", self._on_key_press)
         self.root.bind("<KeyRelease>", self._on_key_release)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -264,6 +289,13 @@ class J360MoreApp:
                 self.status_text_lbl.config(text=self.t("status_stopped"))
             if hasattr(self, "btn_toggle_emu"):
                 self.btn_toggle_emu.config(text=self.t("btn_start_emu"))
+
+        if hasattr(self, "lbl_version"):
+            if getattr(self, "_available_update_version", None):
+                alert_text = self.t("new_version_available", ver=self._available_update_version)
+                self.lbl_version.config(text=f"v{APP_VERSION}  {alert_text}")
+            else:
+                self.lbl_version.config(text=f"v{APP_VERSION}")
 
         self._rebuild_tabs(max_ctrls)
 
@@ -1354,6 +1386,54 @@ class J360MoreApp:
         suppress_hidhide = self.config.get("suppress_hidhide_warning", False)
         if not suppress_hidhide and not self.driver_manager.is_hidhide_installed():
             self._show_hidhide_warning_dialog()
+
+    def _check_update_once(self):
+        """Dispara la comprobacion de nueva version en GitHub una unica vez al iniciar."""
+        if getattr(self, "_update_checked", False):
+            return
+        self._update_checked = True
+        threading.Thread(target=self._fetch_latest_release_worker, daemon=True).start()
+
+    def _fetch_latest_release_worker(self):
+        """Consulta en segundo plano la API de GitHub Releases sin bloquear la interfaz."""
+        try:
+            req = urllib.request.Request(
+                "https://api.github.com/repos/JuanJSAR93/j360More-Xbox_360_Controller_Emulator/releases/latest",
+                headers={"User-Agent": "j360More-App"}
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    tag_name = data.get("tag_name", "").strip()
+                    if tag_name and parse_version(tag_name) > parse_version(APP_VERSION):
+                        clean_tag = tag_name.lstrip("vV")
+                        self._available_update_version = clean_tag
+                        self.root.after(0, lambda t=clean_tag: self._on_update_detected(t))
+        except Exception:
+            # En caso de falta de conexion o timeout, se omite silenciosamente sin interrumpir
+            pass
+
+    def _on_update_detected(self, latest_ver: str):
+        """Actualiza el indicador de version en la barra inferior haciendolo interactivo."""
+        if not hasattr(self, "lbl_version"):
+            return
+        alert_text = self.t("new_version_available", ver=latest_ver)
+        self.lbl_version.config(
+            text=f"v{APP_VERSION}  {alert_text}",
+            foreground="#b45309",
+            cursor="hand2"
+        )
+        releases_url = "https://github.com/JuanJSAR93/j360More-Xbox_360_Controller_Emulator/releases"
+        self.lbl_version.bind("<Button-1>", lambda e: webbrowser.open(releases_url))
+
+        def on_enter(e):
+            self.lbl_version.config(foreground="#d97706", font=("Segoe UI", 9, "bold underline"))
+
+        def on_leave(e):
+            self.lbl_version.config(foreground="#b45309", font=("Segoe UI", 9, "bold"))
+
+        self.lbl_version.bind("<Enter>", on_enter)
+        self.lbl_version.bind("<Leave>", on_leave)
 
     def _show_hidhide_warning_dialog(self):
         """Ventana modal informativa leve sobre la ausencia de HidHide con opción de no volver a mostrar."""

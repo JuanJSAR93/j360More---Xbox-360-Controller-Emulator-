@@ -237,7 +237,8 @@ STRINGS = {
         "wizard_hint_stick_dir": "Inclina la palanca hacia la dirección indicada",
         "wizard_hint_dpad": "Presiona la dirección correspondiente en la cruceta",
         "wizard_hint_default": "Presiona o mueve el control en tu mando",
-        "joy_cpl_error": "No se pudo abrir joy.cpl: {e}"
+        "joy_cpl_error": "No se pudo abrir joy.cpl: {e}",
+        "new_version_available": "⚠️ ¡v{ver} disponible!"
     },
     "en": {
         "app_title": "j360More - Multi-Gamepad (1 to 12 Controllers) - by JuanJSAR - ViGEmBus",
@@ -460,7 +461,8 @@ STRINGS = {
         "wizard_hint_stick_dir": "Tilt the stick in the indicated direction",
         "wizard_hint_dpad": "Press the corresponding direction on the D-Pad",
         "wizard_hint_default": "Press or move the control on your gamepad",
-        "joy_cpl_error": "Could not open joy.cpl: {e}"
+        "joy_cpl_error": "Could not open joy.cpl: {e}",
+        "new_version_available": "⚠️ v{ver} available!"
     },
     "fr": {
         "app_title": "j360More - Multi-Gamepad (1 à 12 Manettes) - par JuanJSAR - ViGEmBus",
@@ -683,7 +685,8 @@ STRINGS = {
             "RIGHT_SHOULDER": "Bumper D (RB)",
             "LEFT_TRIGGER": "Gâchette G (LT)",
             "RIGHT_TRIGGER": "Gâchette D (RT)"
-        }
+        },
+        "new_version_available": "⚠️ v{ver} disponible !"
     },
     "pt_BR": {
         "app_title": "j360More - Multi-Gamepad (1 a 12 Controles) - por JuanJSAR - ViGEmBus",
@@ -906,7 +909,8 @@ STRINGS = {
             "RIGHT_SHOULDER": "Bumper Dir. (RB)",
             "LEFT_TRIGGER": "Gatilho Esq. (LT)",
             "RIGHT_TRIGGER": "Gatilho Dir. (RT)"
-        }
+        },
+        "new_version_available": "⚠️ v{ver} disponível!"
     },
     "de": {
         "app_title": "j360More - Multi-Gamepad (1 bis 12 Controller) - von JuanJSAR - ViGEmBus",
@@ -1129,7 +1133,8 @@ STRINGS = {
             "RIGHT_SHOULDER": "Rechter Bumper (RB)",
             "LEFT_TRIGGER": "Linker Trigger (LT)",
             "RIGHT_TRIGGER": "Rechter Trigger (RT)"
-        }
+        },
+        "new_version_available": "⚠️ v{ver} verfügbar!"
     },
     "it": {
         "app_title": "j360More - Multi-Gamepad (da 1 a 12 Controller) - di JuanJSAR - ViGEmBus",
@@ -1352,7 +1357,8 @@ STRINGS = {
             "RIGHT_SHOULDER": "Bumper DX (RB)",
             "LEFT_TRIGGER": "Grilletto SX (LT)",
             "RIGHT_TRIGGER": "Grilletto DX (RT)"
-        }
+        },
+        "new_version_available": "⚠️ v{ver} disponibile!"
     },
     "ru": {
         "app_title": "j360More - Мульти-геймпад (от 1 до 12 контроллеров) - автор JuanJSAR - ViGEmBus",
@@ -1575,7 +1581,8 @@ STRINGS = {
             "RIGHT_SHOULDER": "Правый Бампер (RB)",
             "LEFT_TRIGGER": "Левый Триггер (LT)",
             "RIGHT_TRIGGER": "Правый Триггер (RT)"
-        }
+        },
+        "new_version_available": "⚠️ Доступна v{ver}!"
     }
 }
 
