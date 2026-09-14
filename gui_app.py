@@ -20,7 +20,7 @@ from input_devices import DeviceManager
 from emulator_engine import EmulatorEngine, apply_axis_calibration, apply_trigger_calibration
 from i18n import get_text, get_target_name
 
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.2"
 
 if getattr(sys, "frozen", False):
     EXE_DIR = os.path.dirname(sys.executable)
@@ -143,35 +143,35 @@ TARGET_NAMES_ES = {
 }
 
 DEFAULT_MAPPINGS = {
-    "LEFT_TRIGGER": "Axis 3+",
-    "LEFT_SHOULDER": "Button 5",
-    "BACK": "Button 9",
-    "START": "Button 10",
+    "LEFT_TRIGGER": "-- Ninguno --",
+    "LEFT_SHOULDER": "-- Ninguno --",
+    "BACK": "-- Ninguno --",
+    "START": "-- Ninguno --",
     "GUIDE": "-- Ninguno --",
-    "LEFT_STICK_X": "Axis 1",
-    "LEFT_STICK_Y": "Axis 2",
+    "LEFT_STICK_X": "-- Ninguno --",
+    "LEFT_STICK_Y": "-- Ninguno --",
     "LEFT_STICK_UP": "-- Ninguno --",
     "LEFT_STICK_DOWN": "-- Ninguno --",
     "LEFT_STICK_LEFT": "-- Ninguno --",
     "LEFT_STICK_RIGHT": "-- Ninguno --",
-    "LEFT_THUMB": "Button 11",
-    "RIGHT_TRIGGER": "Axis 6+",
-    "RIGHT_SHOULDER": "Button 6",
-    "Y": "Button 4",
-    "X": "Button 1",
-    "B": "Button 3",
-    "A": "Button 2",
-    "RIGHT_STICK_X": "Axis 3",
-    "RIGHT_STICK_Y": "Axis 4",
+    "LEFT_THUMB": "-- Ninguno --",
+    "RIGHT_TRIGGER": "-- Ninguno --",
+    "RIGHT_SHOULDER": "-- Ninguno --",
+    "Y": "-- Ninguno --",
+    "X": "-- Ninguno --",
+    "B": "-- Ninguno --",
+    "A": "-- Ninguno --",
+    "RIGHT_STICK_X": "-- Ninguno --",
+    "RIGHT_STICK_Y": "-- Ninguno --",
     "RIGHT_STICK_UP": "-- Ninguno --",
     "RIGHT_STICK_DOWN": "-- Ninguno --",
     "RIGHT_STICK_LEFT": "-- Ninguno --",
     "RIGHT_STICK_RIGHT": "-- Ninguno --",
-    "RIGHT_THUMB": "Button 12",
-    "DPAD_UP": "POV 1 Up",
-    "DPAD_DOWN": "POV 1 Down",
-    "DPAD_LEFT": "POV 1 Left",
-    "DPAD_RIGHT": "POV 1 Right"
+    "RIGHT_THUMB": "-- Ninguno --",
+    "DPAD_UP": "-- Ninguno --",
+    "DPAD_DOWN": "-- Ninguno --",
+    "DPAD_LEFT": "-- Ninguno --",
+    "DPAD_RIGHT": "-- Ninguno --"
 }
 
 DEFAULT_CALIBRATION = {
@@ -348,8 +348,8 @@ class J360MoreApp:
                         else:
                             data["controllers"][str_i] = {
                                 "name": f"Jugador {i}",
-                                "enabled": True,
-                                "physical_device_id": f"joy_{i-1}" if i <= 4 else "none",
+                                "enabled": False,
+                                "physical_device_id": "none",
                                 "mappings": dict(DEFAULT_MAPPINGS),
                                 "calibration": json.loads(json.dumps(DEFAULT_CALIBRATION))
                             }
@@ -361,8 +361,8 @@ class J360MoreApp:
         for i in range(1, 13):
             cfg["controllers"][str(i)] = {
                 "name": f"Jugador {i}",
-                "enabled": True,
-                "physical_device_id": f"joy_{i-1}" if i <= 4 else "none",
+                "enabled": False,
+                "physical_device_id": "none",
                 "mappings": dict(DEFAULT_MAPPINGS),
                 "calibration": json.loads(json.dumps(DEFAULT_CALIBRATION))
             }
