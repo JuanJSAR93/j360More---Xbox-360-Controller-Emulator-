@@ -395,6 +395,26 @@ class DeviceManager:
                                 return f"Axis {a + 1}+"
                             elif prev > 0.6 and curr < 0.2:
                                 return f"Axis {a + 1}-"
+                            
+                            # Si estamos asignando una dirección discreta específica del stick
+                            if target_name.endswith("_UP"):
+                                # En SDL/DirectInput: empujar hacia arriba genera un diff negativo (< 0)
+                                return f"IAxis {a + 1}" if diff < 0 else f"Axis {a + 1}"
+                            elif target_name.endswith("_DOWN"):
+                                # Empujar hacia abajo genera un diff positivo (> 0)
+                                return f"Axis {a + 1}" if diff > 0 else f"IAxis {a + 1}"
+                            elif target_name.endswith("_LEFT"):
+                                # Empujar a la izquierda genera un diff negativo (< 0)
+                                return f"IAxis {a + 1}" if diff < 0 else f"Axis {a + 1}"
+                            elif target_name.endswith("_RIGHT"):
+                                # Empujar a la derecha genera un diff positivo (> 0)
+                                return f"Axis {a + 1}" if diff > 0 else f"IAxis {a + 1}"
+                            elif target_name.endswith("_Y"):
+                                # Para el eje completo Y, la convención estándar es Axis N (donde arriba es - y abajo es +)
+                                return f"Axis {a + 1}"
+                            elif target_name.endswith("_X"):
+                                # Para el eje completo X, la convención estándar es Axis N (donde izquierda es - y derecha es +)
+                                return f"Axis {a + 1}"
                             elif diff > 0:
                                 return f"Axis {a + 1}"
                             else:
