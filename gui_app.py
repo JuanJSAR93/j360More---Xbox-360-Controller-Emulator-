@@ -20,7 +20,7 @@ from input_devices import DeviceManager
 from emulator_engine import EmulatorEngine, apply_axis_calibration, apply_trigger_calibration
 from i18n import get_text, get_target_name
 
-APP_VERSION = "1.0.5"
+APP_VERSION = "1.0.6"
 
 if getattr(sys, "frozen", False):
     EXE_DIR = os.path.dirname(sys.executable)
@@ -189,8 +189,8 @@ class J360MoreApp:
         self.root.title(self.t("app_title"))
         self._setup_app_icon()
 
-        # Tamaño fijo compacto donde todo es visible
-        self.root.geometry("980x640")
+        # Tamaño fijo compacto donde todo es visible sin espacio desperdiciado
+        self.root.geometry("980x580")
         self.root.resizable(False, False)
 
         self.driver_manager = DriverManager(self.config)
@@ -1950,7 +1950,7 @@ class J360MoreApp:
 
         dlg = tk.Toplevel(self.root)
         dlg.title(self.t("wizard_title", id=pad_id))
-        dlg.geometry("690x590")
+        dlg.geometry("670x505")
         dlg.resizable(False, False)
         dlg.transient(self.root)
         dlg.grab_set()
@@ -1960,12 +1960,12 @@ class J360MoreApp:
         ph = self.root.winfo_height()
         px = self.root.winfo_rootx()
         py = self.root.winfo_rooty()
-        dw, dh = 690, 590
+        dw, dh = 670, 505
         pos_x = max(0, px + (pw - dw) // 2)
         pos_y = max(0, py + (ph - dh) // 2)
         dlg.geometry(f"{dw}x{dh}+{pos_x}+{pos_y}")
 
-        header_frame = ttk.Frame(dlg, padding="10 8 10 4")
+        header_frame = ttk.Frame(dlg, padding="10 6 10 2")
         header_frame.pack(fill=tk.X)
 
         top_info = ttk.Frame(header_frame)
@@ -1975,22 +1975,22 @@ class J360MoreApp:
         lbl_step.pack(side=tk.LEFT)
 
         prog_bar = ttk.Progressbar(header_frame, orient="horizontal", mode="determinate")
-        prog_bar.pack(fill=tk.X, pady=(4, 6))
+        prog_bar.pack(fill=tk.X, pady=(2, 4))
 
         lbl_target_name = ttk.Label(header_frame, text="", font=("Segoe UI", 13, "bold"), foreground="#111111")
         lbl_target_name.pack(anchor="center")
 
         lbl_target_hint = ttk.Label(header_frame, text="", font=("Segoe UI", 9, "italic"), foreground="#555555")
-        lbl_target_hint.pack(anchor="center", pady=(2, 4))
+        lbl_target_hint.pack(anchor="center", pady=(1, 2))
 
-        center_frame = ttk.Frame(dlg, padding="10 2 10 4")
-        center_frame.pack(fill=tk.BOTH, expand=True)
+        center_frame = ttk.Frame(dlg, padding="10 2 10 2")
+        center_frame.pack(fill=tk.X)
 
-        left_box = ttk.LabelFrame(center_frame, text=f" {self.t('subtab_general')} - Mando Oficial ", padding=4)
+        left_box = ttk.LabelFrame(center_frame, text=f" {self.t('subtab_general')} - Mando Oficial ", padding=2)
         left_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 6))
 
         cv_main = tk.Canvas(left_box, width=350, height=275, bg="#ffffff", highlightthickness=1, highlightbackground="#d0d0d0")
-        cv_main.pack(anchor="center", pady=4)
+        cv_main.pack(anchor="center", pady=2)
 
         if self.controller_img_tk:
             cv_main.create_image(175, 137, image=self.controller_img_tk)
@@ -1998,21 +1998,21 @@ class J360MoreApp:
         main_halo = cv_main.create_oval(0, 0, 0, 0, outline="#ff2200", width=3, state="hidden")
         main_core = cv_main.create_oval(0, 0, 0, 0, fill="#ffaa00", outline="#ffffff", width=1.5, state="hidden")
 
-        right_box = ttk.LabelFrame(center_frame, text=f" {self.t('wizard_zoom_title')} ", padding=4)
+        right_box = ttk.LabelFrame(center_frame, text=f" {self.t('wizard_zoom_title')} ", padding=2)
         right_box.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(6, 0))
 
         cv_zoom = tk.Canvas(right_box, width=240, height=240, bg="#f8f9fa", highlightthickness=1, highlightbackground="#d0d0d0")
-        cv_zoom.pack(anchor="center", pady=4)
+        cv_zoom.pack(anchor="center", pady=2)
 
         zoom_img_holder = [None]
 
-        status_frame = ttk.Frame(dlg, padding="10 4 10 4")
+        status_frame = ttk.Frame(dlg, padding="10 2 10 2")
         status_frame.pack(fill=tk.X)
 
         lbl_status = ttk.Label(status_frame, text=self.t("wizard_waiting"), font=("Segoe UI", 11, "bold"), foreground="#666666", anchor="center")
         lbl_status.pack(fill=tk.X)
 
-        btn_bar = ttk.Frame(dlg, padding="10 8 10 10")
+        btn_bar = ttk.Frame(dlg, padding="10 4 10 8")
         btn_bar.pack(fill=tk.X, side=tk.BOTTOM)
 
         worker_state = {
