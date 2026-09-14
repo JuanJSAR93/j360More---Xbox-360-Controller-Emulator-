@@ -390,13 +390,22 @@ class DeviceManager:
                         prev = baseline_axes.get(a, 0.0)
                         diff = curr - prev
                         if abs(diff) > axis_thresh:
-                            # Si el eje reposaba en negativo (-1.0 aprox, ej: gatillos) y se jala a positivo
-                            if prev < -0.6 and curr > -0.2:
-                                return f"Axis {a + 1}+"
-                            elif prev > 0.6 and curr < 0.2:
-                                return f"Axis {a + 1}-"
+                            # 3.1 Si el objetivo es un Gatillo (TRIGGER) y reposa en un extremo
+                            if "TRIGGER" in target_name:
+                                if prev < -0.6 and curr > -0.2:
+                                    return f"Axis {a + 1}+"
+                                elif prev > 0.6 and curr < 0.2:
+                                    return f"Axis {a + 1}-"
+                                elif diff > 0:
+                                    return f"Axis {a + 1}+"
+                                else:
+                                    return f"Axis {a + 1}-"
                             
-                            # Si estamos asignando una dirección discreta específica del stick
+                            # 3.2 Si el objetivo es un eje completo analógico de stick (STICK_X / STICK_Y)
+                            if target_name.endswith("_X") or target_name.endswith("_Y"):
+                                return f"Axis {a + 1}"
+
+                            # 3.3 Si estamos asignando una dirección discreta específica del stick
                             if target_name.endswith("_UP"):
                                 # En SDL/DirectInput: empujar hacia arriba genera un diff negativo (< 0)
                                 return f"IAxis {a + 1}" if diff < 0 else f"Axis {a + 1}"
@@ -409,12 +418,12 @@ class DeviceManager:
                             elif target_name.endswith("_RIGHT"):
                                 # Empujar a la derecha genera un diff positivo (> 0)
                                 return f"Axis {a + 1}" if diff > 0 else f"IAxis {a + 1}"
-                            elif target_name.endswith("_Y"):
-                                # Para el eje completo Y, la convención estándar es Axis N (donde arriba es - y abajo es +)
-                                return f"Axis {a + 1}"
-                            elif target_name.endswith("_X"):
-                                # Para el eje completo X, la convención estándar es Axis N (donde izquierda es - y derecha es +)
-                                return f"Axis {a + 1}"
+
+                            # 3.4 Fallback general (para triggers u otros controles)
+                            if prev < -0.6 and curr > -0.2:
+                                return f"Axis {a + 1}+"
+                            elif prev > 0.6 and curr < 0.2:
+                                return f"Axis {a + 1}-"
                             elif diff > 0:
                                 return f"Axis {a + 1}"
                             else:
