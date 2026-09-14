@@ -18,9 +18,9 @@ except ImportError:
 from driver_manager import DriverManager
 from input_devices import DeviceManager
 from emulator_engine import EmulatorEngine, apply_axis_calibration, apply_trigger_calibration
-from i18n import get_text, get_target_name
+from i18n import get_text, get_target_name, SUPPORTED_LANGUAGES
 
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.1.0"
 
 if getattr(sys, "frozen", False):
     EXE_DIR = os.path.dirname(sys.executable)
@@ -231,8 +231,10 @@ class J360MoreApp:
         return get_target_name(lang, target)
 
     def _toggle_language(self):
+        codes = list(SUPPORTED_LANGUAGES.keys())
         cur = self.config.get("language", "es")
-        self.config["language"] = "en" if cur == "es" else "es"
+        idx = codes.index(cur) if cur in codes else 0
+        self.config["language"] = codes[(idx + 1) % len(codes)]
         self.save_config(silent=True)
         self._update_ui_texts()
 
@@ -720,7 +722,7 @@ class J360MoreApp:
         if not widgets.get("is_device_assigned", True):
             canvas.config(cursor="")
             if hasattr(self, "hint_lbl"):
-                self.hint_lbl.config(text="⚠️ Sin periférico asignado. Selecciona un dispositivo arriba para habilitar el mapeo.")
+                self.hint_lbl.config(text=self.t("hint_no_device"))
             return
 
         target = self._find_target_at_pos(event.x, event.y)
@@ -1407,10 +1409,12 @@ class J360MoreApp:
         box_lang.pack(fill=tk.X, pady=(0, 8))
 
         cur_lang_code = self.config.get("language", "es")
-        cur_lang_str = "Español" if cur_lang_code == "es" else "English"
+        if cur_lang_code not in SUPPORTED_LANGUAGES:
+            cur_lang_code = "es"
+        cur_lang_str = SUPPORTED_LANGUAGES[cur_lang_code]
         lang_var = tk.StringVar(value=cur_lang_str)
 
-        lang_combo = ttk.Combobox(box_lang, textvariable=lang_var, values=["Español", "English"], state="readonly", width=22)
+        lang_combo = ttk.Combobox(box_lang, textvariable=lang_var, values=list(SUPPORTED_LANGUAGES.values()), state="readonly", width=25)
         lang_combo.pack(anchor="w", padx=4, pady=2)
 
         # SECCION 2: Mandos virtuales a emular
@@ -1484,7 +1488,8 @@ class J360MoreApp:
 
         def apply_settings():
             # 1. Aplicar idioma
-            new_lang = "es" if lang_var.get() == "Español" else "en"
+            inv_lang = {v: k for k, v in SUPPORTED_LANGUAGES.items()}
+            new_lang = inv_lang.get(lang_var.get(), "es")
             self.config["language"] = new_lang
             self.config["author"] = "JuanJSAR"
 
@@ -1989,7 +1994,7 @@ class J360MoreApp:
         center_frame = ttk.Frame(dlg, padding="10 2 10 2")
         center_frame.pack(fill=tk.X)
 
-        left_box = ttk.LabelFrame(center_frame, text=f" {self.t('subtab_general')} - Mando Oficial ", padding=2)
+        left_box = ttk.LabelFrame(center_frame, text=f" {self.t('subtab_general')} - {self.t('wizard_official_pad')} ", padding=2)
         left_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 6))
 
         cv_main = tk.Canvas(left_box, width=350, height=275, bg="#ffffff", highlightthickness=1, highlightbackground="#d0d0d0")
@@ -2027,32 +2032,29 @@ class J360MoreApp:
         }
 
         def get_hint_text(tgt: str) -> str:
-            lang = self.config.get("language", "es")
             if "TRIGGER" in tgt:
-                return "Presiona el gatillo a fondo" if lang == "es" else "Pull the trigger fully"
+                return self.t("wizard_hint_trigger")
             elif "SHOULDER" in tgt:
-                return "Presiona el botón frontal superior (Bumper)" if lang == "es" else "Press the shoulder button (Bumper)"
+                return self.t("wizard_hint_bumper")
             elif tgt in ("A", "B", "X", "Y"):
-                return f"Presiona el botón {tgt}" if lang == "es" else f"Press the {tgt} button"
+                return self.t("wizard_hint_btn", btn=tgt)
             elif tgt == "START":
-                return "Presiona el botón Start / Opciones" if lang == "es" else "Press Start / Options button"
+                return self.t("wizard_hint_start")
             elif tgt == "BACK":
-                return "Presiona el botón Back / Select / Share" if lang == "es" else "Press Back / Select / Share button"
+                return self.t("wizard_hint_back")
             elif tgt == "GUIDE":
-                return "Presiona el botón Central Xbox / Guía / Home" if lang == "es" else "Press Xbox Guide / Home button"
+                return self.t("wizard_hint_guide")
             elif tgt in ("LEFT_THUMB", "RIGHT_THUMB"):
-                return "Presiona la palanca hacia adentro hasta hacer clic (L3/R3)" if lang == "es" else "Press down on the stick until it clicks (L3/R3)"
+                return self.t("wizard_hint_thumb")
             elif "STICK_X" in tgt:
-                return "Mueve la palanca de izquierda a derecha (Eje X)" if lang == "es" else "Move the stick horizontally (X Axis)"
+                return self.t("wizard_hint_stick_x")
             elif "STICK_Y" in tgt:
-                return "Mueve la palanca de arriba a abajo (Eje Y)" if lang == "es" else "Move the stick vertically (Y Axis)"
+                return self.t("wizard_hint_stick_y")
             elif "STICK" in tgt and any(d in tgt for d in ("UP", "DOWN", "LEFT", "RIGHT")):
-                dir_name = tgt.split("_")[-1].capitalize()
-                return f"Inclina la palanca hacia la dirección {dir_name}" if lang == "es" else f"Tilt the stick in the {dir_name} direction"
+                return self.t("wizard_hint_stick_dir")
             elif "DPAD" in tgt:
-                dir_name = tgt.replace("DPAD_", "").capitalize()
-                return f"Presiona la cruceta hacia {dir_name}" if lang == "es" else f"Press the D-Pad {dir_name} direction"
-            return "Presiona el control en tu mando" if lang == "es" else "Press the control on your gamepad"
+                return self.t("wizard_hint_dpad")
+            return self.t("wizard_hint_default")
 
         def update_ui_for_target(tgt: str):
             nonlocal current_step_idx
@@ -2293,7 +2295,7 @@ class J360MoreApp:
             flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
             subprocess.Popen(["joy.cpl"], shell=True, creationflags=flags)
         except Exception as e:
-            messagebox.showerror("Error", f"No se pudo abrir joy.cpl: {e}")
+            messagebox.showerror("Error", self.t("joy_cpl_error", e=e))
 
     def _draw_trigger_graph(self, cv: tk.Canvas, dz: int, adz: int, sens: int, inv: bool, raw_val: float, out_byte: int):
         cv.delete("all")
