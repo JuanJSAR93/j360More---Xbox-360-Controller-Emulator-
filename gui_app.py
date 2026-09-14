@@ -20,7 +20,7 @@ from input_devices import DeviceManager
 from emulator_engine import EmulatorEngine, apply_axis_calibration, apply_trigger_calibration
 from i18n import get_text, get_target_name
 
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.0.3"
 
 if getattr(sys, "frozen", False):
     EXE_DIR = os.path.dirname(sys.executable)
@@ -299,12 +299,14 @@ class J360MoreApp:
 
     def _load_assets(self):
         self.controller_img_tk = None
+        self.controller_pil_base = None
 
         # 1. Intentar renderizar controller.svg con resvg_py
         if os.path.exists(CONTROLLER_SVG_PATH) and resvg_py is not None:
             try:
                 png_bytes = resvg_py.svg_to_bytes(svg_path=CONTROLLER_SVG_PATH, width=350)
                 pil_img = Image.open(io.BytesIO(png_bytes))
+                self.controller_pil_base = pil_img.copy()
                 self.controller_img_tk = ImageTk.PhotoImage(pil_img)
                 # Guardar en cache local
                 pil_img.save(CONTROLLER_CACHE_PNG)
@@ -316,6 +318,7 @@ class J360MoreApp:
         if os.path.exists(CONTROLLER_CACHE_PNG):
             try:
                 pil_img = Image.open(CONTROLLER_CACHE_PNG)
+                self.controller_pil_base = pil_img.copy()
                 self.controller_img_tk = ImageTk.PhotoImage(pil_img)
                 return
             except Exception:
@@ -325,7 +328,9 @@ class J360MoreApp:
         if os.path.exists(CONTROLLER_PNG_FALLBACK):
             try:
                 pil_img = Image.open(CONTROLLER_PNG_FALLBACK).resize((350, 275), Image.Resampling.LANCZOS)
+                self.controller_pil_base = pil_img.copy()
                 self.controller_img_tk = ImageTk.PhotoImage(pil_img)
+                return
             except Exception:
                 pass
 
@@ -497,6 +502,11 @@ class J360MoreApp:
         btn_copy = ttk.Button(top_bar, text=self.t("btn_copy_to"), command=lambda p=pad_id: self._open_copy_dialog(p))
         btn_copy.pack(side=tk.LEFT, padx=4)
         widgets["mapping_controls"].append(btn_copy)
+
+        btn_wizard = ttk.Button(top_bar, text=self.t("btn_wizard"), command=lambda p=pad_id: self._open_wizard_dialog(p))
+        btn_wizard.pack(side=tk.LEFT, padx=4)
+        widgets["mapping_controls"].append(btn_wizard)
+        widgets["btn_wizard"] = btn_wizard
 
         # Sub-notebook: General, Triggers, Sticks
         sub_nb = ttk.Notebook(parent)
@@ -1884,6 +1894,319 @@ class J360MoreApp:
 
         btn_cancel = ttk.Button(btn_box, text=self.t("set_btn_cancel"), command=dlg.destroy)
         btn_cancel.pack(side=tk.RIGHT, padx=4)
+
+    def _open_wizard_dialog(self, pad_id: int):
+        cfg = self.config.get("controllers", {}).get(str(pad_id), {})
+        dev_id = cfg.get("physical_device_id", "none")
+        if dev_id == "none":
+            messagebox.showwarning(self.t("wizard_title", id=pad_id), self.t("wizard_no_device"))
+            return
+
+        BASE_SEQUENCE = [
+            # Cruceta / D-Pad
+            "DPAD_UP", "DPAD_DOWN", "DPAD_LEFT", "DPAD_RIGHT",
+            # Botones Principales
+            "A", "B", "X", "Y",
+            # Botones Centrales / Menú
+            "START", "BACK", "GUIDE",
+            # Bumpers y Gatillos
+            "LEFT_SHOULDER", "RIGHT_SHOULDER", "LEFT_TRIGGER", "RIGHT_TRIGGER",
+            # Stick Izquierdo
+            "LEFT_THUMB", "LEFT_STICK_X", "LEFT_STICK_Y",
+            # Stick Derecho
+            "RIGHT_THUMB", "RIGHT_STICK_X", "RIGHT_STICK_Y"
+        ]
+
+        LEFT_STICK_DISCRETE = ["LEFT_STICK_UP", "LEFT_STICK_DOWN", "LEFT_STICK_LEFT", "LEFT_STICK_RIGHT"]
+        RIGHT_STICK_DISCRETE = ["RIGHT_STICK_UP", "RIGHT_STICK_DOWN", "RIGHT_STICK_LEFT", "RIGHT_STICK_RIGHT"]
+
+        staged_mappings = {}
+        skipped_targets = set()
+        steps_queue = list(BASE_SEQUENCE)
+        current_step_idx = 0
+
+        dlg = tk.Toplevel(self.root)
+        dlg.title(self.t("wizard_title", id=pad_id))
+        dlg.geometry("690x590")
+        dlg.resizable(False, False)
+        dlg.transient(self.root)
+        dlg.grab_set()
+
+        dlg.update_idletasks()
+        pw = self.root.winfo_width()
+        ph = self.root.winfo_height()
+        px = self.root.winfo_rootx()
+        py = self.root.winfo_rooty()
+        dw, dh = 690, 590
+        pos_x = max(0, px + (pw - dw) // 2)
+        pos_y = max(0, py + (ph - dh) // 2)
+        dlg.geometry(f"{dw}x{dh}+{pos_x}+{pos_y}")
+
+        header_frame = ttk.Frame(dlg, padding="10 8 10 4")
+        header_frame.pack(fill=tk.X)
+
+        top_info = ttk.Frame(header_frame)
+        top_info.pack(fill=tk.X)
+
+        lbl_step = ttk.Label(top_info, text="", font=("Segoe UI", 9, "bold"), foreground="#0066cc")
+        lbl_step.pack(side=tk.LEFT)
+
+        prog_bar = ttk.Progressbar(header_frame, orient="horizontal", mode="determinate")
+        prog_bar.pack(fill=tk.X, pady=(4, 6))
+
+        lbl_target_name = ttk.Label(header_frame, text="", font=("Segoe UI", 13, "bold"), foreground="#111111")
+        lbl_target_name.pack(anchor="center")
+
+        lbl_target_hint = ttk.Label(header_frame, text="", font=("Segoe UI", 9, "italic"), foreground="#555555")
+        lbl_target_hint.pack(anchor="center", pady=(2, 4))
+
+        center_frame = ttk.Frame(dlg, padding="10 2 10 4")
+        center_frame.pack(fill=tk.BOTH, expand=True)
+
+        left_box = ttk.LabelFrame(center_frame, text=f" {self.t('subtab_general')} - Mando Oficial ", padding=4)
+        left_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 6))
+
+        cv_main = tk.Canvas(left_box, width=350, height=275, bg="#ffffff", highlightthickness=1, highlightbackground="#d0d0d0")
+        cv_main.pack(anchor="center", pady=4)
+
+        if self.controller_img_tk:
+            cv_main.create_image(175, 137, image=self.controller_img_tk)
+
+        main_halo = cv_main.create_oval(0, 0, 0, 0, outline="#ff2200", width=3, state="hidden")
+        main_core = cv_main.create_oval(0, 0, 0, 0, fill="#ffaa00", outline="#ffffff", width=1.5, state="hidden")
+
+        right_box = ttk.LabelFrame(center_frame, text=f" {self.t('wizard_zoom_title')} ", padding=4)
+        right_box.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(6, 0))
+
+        cv_zoom = tk.Canvas(right_box, width=240, height=240, bg="#f8f9fa", highlightthickness=1, highlightbackground="#d0d0d0")
+        cv_zoom.pack(anchor="center", pady=4)
+
+        zoom_img_holder = [None]
+
+        status_frame = ttk.Frame(dlg, padding="10 4 10 4")
+        status_frame.pack(fill=tk.X)
+
+        lbl_status = ttk.Label(status_frame, text=self.t("wizard_waiting"), font=("Segoe UI", 11, "bold"), foreground="#666666", anchor="center")
+        lbl_status.pack(fill=tk.X)
+
+        btn_bar = ttk.Frame(dlg, padding="10 8 10 10")
+        btn_bar.pack(fill=tk.X, side=tk.BOTTOM)
+
+        worker_state = {
+            "active": True,
+            "listening": True,
+            "current_target": None,
+            "pad_id": pad_id,
+            "dev_id": dev_id
+        }
+
+        def get_hint_text(tgt: str) -> str:
+            lang = self.config.get("language", "es")
+            if "TRIGGER" in tgt:
+                return "Presiona el gatillo a fondo" if lang == "es" else "Pull the trigger fully"
+            elif "SHOULDER" in tgt:
+                return "Presiona el botón frontal superior (Bumper)" if lang == "es" else "Press the shoulder button (Bumper)"
+            elif tgt in ("A", "B", "X", "Y"):
+                return f"Presiona el botón {tgt}" if lang == "es" else f"Press the {tgt} button"
+            elif tgt == "START":
+                return "Presiona el botón Start / Opciones" if lang == "es" else "Press Start / Options button"
+            elif tgt == "BACK":
+                return "Presiona el botón Back / Select / Share" if lang == "es" else "Press Back / Select / Share button"
+            elif tgt == "GUIDE":
+                return "Presiona el botón Central Xbox / Guía / Home" if lang == "es" else "Press Xbox Guide / Home button"
+            elif tgt in ("LEFT_THUMB", "RIGHT_THUMB"):
+                return "Presiona la palanca hacia adentro hasta hacer clic (L3/R3)" if lang == "es" else "Press down on the stick until it clicks (L3/R3)"
+            elif "STICK_X" in tgt:
+                return "Mueve la palanca de izquierda a derecha (Eje X)" if lang == "es" else "Move the stick horizontally (X Axis)"
+            elif "STICK_Y" in tgt:
+                return "Mueve la palanca de arriba a abajo (Eje Y)" if lang == "es" else "Move the stick vertically (Y Axis)"
+            elif "STICK" in tgt and any(d in tgt for d in ("UP", "DOWN", "LEFT", "RIGHT")):
+                dir_name = tgt.split("_")[-1].capitalize()
+                return f"Inclina la palanca hacia la dirección {dir_name}" if lang == "es" else f"Tilt the stick in the {dir_name} direction"
+            elif "DPAD" in tgt:
+                dir_name = tgt.replace("DPAD_", "").capitalize()
+                return f"Presiona la cruceta hacia {dir_name}" if lang == "es" else f"Press the D-Pad {dir_name} direction"
+            return "Presiona el control en tu mando" if lang == "es" else "Press the control on your gamepad"
+
+        def update_ui_for_target(tgt: str):
+            nonlocal current_step_idx
+            worker_state["current_target"] = tgt
+            worker_state["listening"] = True
+
+            total = len(steps_queue)
+            cur = current_step_idx + 1
+            pct = int((cur / total) * 100)
+            lbl_step.config(text=f"{self.t('wizard_step', cur=cur, total=total)} ({pct}%)")
+            prog_bar["value"] = pct
+
+            lbl_target_name.config(text=f"👉 {self.target_name(tgt)}")
+            lbl_target_hint.config(text=get_hint_text(tgt))
+            lbl_status.config(text=self.t("wizard_waiting"), foreground="#666666")
+
+            canvas_key = map_target_to_canvas_key(tgt)
+            pt = CANVAS_POINTS.get(canvas_key, (175.0, 137.5, 10))
+            cx, cy = pt[0], pt[1]
+
+            cv_main.coords(main_halo, cx - 14, cy - 14, cx + 14, cy + 14)
+            cv_main.coords(main_core, cx - 6, cy - 6, cx + 6, cy + 6)
+            cv_main.itemconfig(main_halo, outline="#ff2200", state="normal")
+            cv_main.itemconfig(main_core, fill="#ffaa00", state="normal")
+
+            cv_zoom.delete("all")
+            if self.controller_pil_base:
+                try:
+                    crop_r = 45
+                    x0 = max(0, int(cx - crop_r))
+                    y0 = max(0, int(cy - crop_r))
+                    x1 = min(350, int(cx + crop_r))
+                    y1 = min(275, int(cy + crop_r))
+                    cropped = self.controller_pil_base.crop((x0, y0, x1, y1))
+                    zoomed = cropped.resize((240, 240), Image.Resampling.LANCZOS)
+                    zoom_img_holder[0] = ImageTk.PhotoImage(zoomed)
+                    cv_zoom.create_image(120, 120, image=zoom_img_holder[0])
+                except Exception as ex:
+                    print(f"[!] Error generando zoom: {ex}")
+
+            cv_zoom.create_oval(120 - 30, 120 - 30, 120 + 30, 120 + 30, outline="#ff2200", width=3)
+            cv_zoom.create_oval(120 - 4, 120 - 4, 120 + 4, 120 + 4, fill="#ff2200", outline="#ffffff", width=1)
+            cv_zoom.create_line(120 - 45, 120, 120 - 32, 120, fill="#ff2200", width=2)
+            cv_zoom.create_line(120 + 32, 120, 120 + 45, 120, fill="#ff2200", width=2)
+            cv_zoom.create_line(120, 120 - 45, 120, 120 - 32, fill="#ff2200", width=2)
+            cv_zoom.create_line(120, 120 + 32, 120, 120 + 45, fill="#ff2200", width=2)
+
+            if "STICK_X" in tgt:
+                cv_zoom.create_line(35, 210, 205, 210, fill="#cc0000", width=4, arrow=tk.BOTH, arrowshape=(10, 12, 5))
+                cv_zoom.create_text(120, 225, text="◄  EJE X (Horizontal)  ►", fill="#cc0000", font=("Segoe UI", 9, "bold"))
+            elif "STICK_Y" in tgt:
+                cv_zoom.create_line(215, 35, 215, 205, fill="#cc0000", width=4, arrow=tk.BOTH, arrowshape=(10, 12, 5))
+                cv_zoom.create_text(120, 225, text="▲  EJE Y (Vertical)  ▼", fill="#cc0000", font=("Segoe UI", 9, "bold"))
+            elif "UP" in tgt:
+                cv_zoom.create_line(120, 195, 120, 155, fill="#cc0000", width=4, arrow=tk.LAST, arrowshape=(10, 12, 5))
+                cv_zoom.create_text(120, 225, text="▲ ARRIBA", fill="#cc0000", font=("Segoe UI", 9, "bold"))
+            elif "DOWN" in tgt:
+                cv_zoom.create_line(120, 155, 120, 195, fill="#cc0000", width=4, arrow=tk.LAST, arrowshape=(10, 12, 5))
+                cv_zoom.create_text(120, 225, text="▼ ABAJO", fill="#cc0000", font=("Segoe UI", 9, "bold"))
+            elif "LEFT" in tgt:
+                cv_zoom.create_line(140, 120, 95, 120, fill="#cc0000", width=4, arrow=tk.LAST, arrowshape=(10, 12, 5))
+                cv_zoom.create_text(120, 225, text="◄ IZQUIERDA", fill="#cc0000", font=("Segoe UI", 9, "bold"))
+            elif "RIGHT" in tgt:
+                cv_zoom.create_line(100, 120, 145, 120, fill="#cc0000", width=4, arrow=tk.LAST, arrowshape=(10, 12, 5))
+                cv_zoom.create_text(120, 225, text="► DERECHA", fill="#cc0000", font=("Segoe UI", 9, "bold"))
+
+        def advance():
+            nonlocal current_step_idx
+            cur_tgt = worker_state["current_target"]
+
+            if cur_tgt == "LEFT_STICK_Y":
+                if "LEFT_STICK_X" not in staged_mappings or "LEFT_STICK_Y" not in staged_mappings:
+                    if not any(t in steps_queue for t in LEFT_STICK_DISCRETE):
+                        for off, t in enumerate(LEFT_STICK_DISCRETE):
+                            steps_queue.insert(current_step_idx + 1 + off, t)
+            elif cur_tgt == "RIGHT_STICK_Y":
+                if "RIGHT_STICK_X" not in staged_mappings or "RIGHT_STICK_Y" not in staged_mappings:
+                    if not any(t in steps_queue for t in RIGHT_STICK_DISCRETE):
+                        for off, t in enumerate(RIGHT_STICK_DISCRETE):
+                            steps_queue.insert(current_step_idx + 1 + off, t)
+
+            current_step_idx += 1
+            if current_step_idx < len(steps_queue):
+                update_ui_for_target(steps_queue[current_step_idx])
+            else:
+                on_finish()
+
+        def on_detected(detected_val: str):
+            if not worker_state["active"] or not worker_state["listening"]:
+                return
+            worker_state["listening"] = False
+
+            tgt = worker_state["current_target"]
+            staged_mappings[tgt] = detected_val
+
+            lbl_status.config(text=self.t("wizard_detected", input=detected_val), foreground="#009922")
+            cv_main.itemconfig(main_halo, outline="#00cc44")
+            cv_main.itemconfig(main_core, fill="#00ff66")
+            cv_zoom.create_oval(120 - 35, 120 - 35, 120 + 35, 120 + 35, outline="#00cc44", width=5)
+
+            dlg.after(350, advance)
+
+        def on_skip():
+            if not worker_state["active"]:
+                return
+            worker_state["listening"] = False
+            tgt = worker_state["current_target"]
+            skipped_targets.add(tgt)
+            advance()
+
+        def on_finish():
+            worker_state["active"] = False
+            worker_state["listening"] = False
+            self.device_manager.cancel_capture()
+
+            widgets = self.tab_widgets.get(pad_id)
+            if widgets and "combos" in widgets:
+                combos = widgets["combos"]
+                for t, v in staged_mappings.items():
+                    if t in combos:
+                        combos[t].set(v)
+
+            self._sync_ui_to_config()
+            self.save_config(silent=True)
+
+            try:
+                dlg.destroy()
+            except Exception:
+                pass
+
+            messagebox.showinfo(self.t("wizard_completed_title"), self.t("wizard_completed_msg", id=pad_id))
+
+        def on_cancel():
+            worker_state["active"] = False
+            worker_state["listening"] = False
+            self.device_manager.cancel_capture()
+            try:
+                dlg.destroy()
+            except Exception:
+                pass
+
+        btn_cancel = ttk.Button(btn_bar, text=self.t("wizard_btn_cancel"), command=on_cancel)
+        btn_cancel.pack(side=tk.LEFT, padx=4)
+
+        btn_skip = ttk.Button(btn_bar, text=self.t("wizard_btn_skip"), command=on_skip)
+        btn_skip.pack(side=tk.LEFT, padx=12)
+
+        btn_finish = ttk.Button(btn_bar, text=self.t("wizard_btn_finish"), command=on_finish)
+        btn_finish.pack(side=tk.RIGHT, padx=4)
+
+        dlg.protocol("WM_DELETE_WINDOW", on_cancel)
+
+        if dev_id == "keyboard":
+            def on_key_event(event):
+                if not worker_state["active"] or not worker_state["listening"]:
+                    return
+                if event.keysym.lower() in ("escape", "esc") or event.keycode == 27:
+                    on_cancel()
+                    return
+                k_name = event.keysym.lower()
+                on_detected(f"Tecla: {k_name}")
+
+            dlg.bind("<KeyPress>", on_key_event)
+        else:
+            dlg.bind("<Escape>", lambda e: on_cancel())
+
+        def capture_thread_func():
+            time.sleep(0.2)
+            while worker_state["active"]:
+                if worker_state["listening"] and dev_id.startswith("joy_"):
+                    det = self.device_manager.capture_input(dev_id, timeout=0.15)
+                    if det and worker_state["active"] and worker_state["listening"]:
+                        dlg.after(0, lambda d=det: on_detected(d))
+                        time.sleep(0.35)
+                time.sleep(0.04)
+
+        threading.Thread(target=capture_thread_func, daemon=True).start()
+
+        update_ui_for_target(steps_queue[0])
+
 
     def _open_joy_cpl(self):
         try:
