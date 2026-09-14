@@ -20,7 +20,7 @@ from input_devices import DeviceManager
 from emulator_engine import EmulatorEngine, apply_axis_calibration, apply_trigger_calibration
 from i18n import get_text, get_target_name
 
-APP_VERSION = "1.0.3"
+APP_VERSION = "1.0.4"
 
 if getattr(sys, "frozen", False):
     EXE_DIR = os.path.dirname(sys.executable)
@@ -34,6 +34,7 @@ else:
 
 CONTROLLER_SVG_PATH = os.path.join(ASSETS_DIR, "controller.svg")
 CONTROLLER_CACHE_PNG = os.path.join(ASSETS_DIR, "controller_render.png")
+CONTROLLER_HIRES_PNG = os.path.join(ASSETS_DIR, "controller_hires.png")
 CONTROLLER_PNG_FALLBACK = os.path.join(ASSETS_DIR, "controller.png")
 ICON_SVG_PATH = os.path.join(ASSETS_DIR, "icon.svg")
 ICON_PNG_PATH = os.path.join(ASSETS_DIR, "icon.png")
@@ -300,35 +301,57 @@ class J360MoreApp:
     def _load_assets(self):
         self.controller_img_tk = None
         self.controller_pil_base = None
+        self.controller_pil_hires = None
 
-        # 1. Intentar renderizar controller.svg con resvg_py
+        # 1. Cargar o renderizar SVG de alta resolución (1400px) para zoom ultra nítido
         if os.path.exists(CONTROLLER_SVG_PATH) and resvg_py is not None:
             try:
-                png_bytes = resvg_py.svg_to_bytes(svg_path=CONTROLLER_SVG_PATH, width=350)
-                pil_img = Image.open(io.BytesIO(png_bytes))
-                self.controller_pil_base = pil_img.copy()
-                self.controller_img_tk = ImageTk.PhotoImage(pil_img)
-                # Guardar en cache local
-                pil_img.save(CONTROLLER_CACHE_PNG)
-                return
+                png_bytes_hi = resvg_py.svg_to_bytes(svg_path=CONTROLLER_SVG_PATH, width=1400)
+                self.controller_pil_hires = Image.open(io.BytesIO(png_bytes_hi))
+                try:
+                    self.controller_pil_hires.save(CONTROLLER_HIRES_PNG)
+                except Exception:
+                    pass
             except Exception as e:
-                print(f"[!] Error renderizando SVG: {e}")
+                print(f"[!] Error renderizando SVG HD: {e}")
 
-        # 2. Cargar cache renderizada
+        # 2. Cargar cache HD desde disco si está disponible
+        if self.controller_pil_hires is None and os.path.exists(CONTROLLER_HIRES_PNG):
+            try:
+                self.controller_pil_hires = Image.open(CONTROLLER_HIRES_PNG)
+            except Exception:
+                pass
+
+        # 3. Si disponemos de la imagen HD, generar la imagen base de 350x275 con LANCZOS
+        if self.controller_pil_hires is not None:
+            try:
+                self.controller_pil_base = self.controller_pil_hires.resize((350, 275), Image.Resampling.LANCZOS)
+                self.controller_img_tk = ImageTk.PhotoImage(self.controller_pil_base)
+                try:
+                    self.controller_pil_base.save(CONTROLLER_CACHE_PNG)
+                except Exception:
+                    pass
+                return
+            except Exception:
+                pass
+
+        # 4. Fallback a cache renderizada previa de 350x275
         if os.path.exists(CONTROLLER_CACHE_PNG):
             try:
                 pil_img = Image.open(CONTROLLER_CACHE_PNG)
                 self.controller_pil_base = pil_img.copy()
+                self.controller_pil_hires = self.controller_pil_base
                 self.controller_img_tk = ImageTk.PhotoImage(pil_img)
                 return
             except Exception:
                 pass
 
-        # 3. Fallback a PNG anterior si existe
+        # 5. Fallback a PNG anterior si existe
         if os.path.exists(CONTROLLER_PNG_FALLBACK):
             try:
                 pil_img = Image.open(CONTROLLER_PNG_FALLBACK).resize((350, 275), Image.Resampling.LANCZOS)
                 self.controller_pil_base = pil_img.copy()
+                self.controller_pil_hires = self.controller_pil_base
                 self.controller_img_tk = ImageTk.PhotoImage(pil_img)
                 return
             except Exception:
@@ -2053,14 +2076,22 @@ class J360MoreApp:
             cv_main.itemconfig(main_core, fill="#ffaa00", state="normal")
 
             cv_zoom.delete("all")
-            if self.controller_pil_base:
+            source_img = self.controller_pil_hires or self.controller_pil_base
+            if source_img:
                 try:
-                    crop_r = 45
-                    x0 = max(0, int(cx - crop_r))
-                    y0 = max(0, int(cy - crop_r))
-                    x1 = min(350, int(cx + crop_r))
-                    y1 = min(275, int(cy + crop_r))
-                    cropped = self.controller_pil_base.crop((x0, y0, x1, y1))
+                    scale_x = source_img.width / 350.0
+                    scale_y = source_img.height / 275.0
+                    hi_cx = cx * scale_x
+                    hi_cy = cy * scale_y
+                    crop_r_x = 42.0 * scale_x
+                    crop_r_y = 42.0 * scale_y
+
+                    x0 = max(0, int(hi_cx - crop_r_x))
+                    y0 = max(0, int(hi_cy - crop_r_y))
+                    x1 = min(source_img.width, int(hi_cx + crop_r_x))
+                    y1 = min(source_img.height, int(hi_cy + crop_r_y))
+
+                    cropped = source_img.crop((x0, y0, x1, y1))
                     zoomed = cropped.resize((240, 240), Image.Resampling.LANCZOS)
                     zoom_img_holder[0] = ImageTk.PhotoImage(zoomed)
                     cv_zoom.create_image(120, 120, image=zoom_img_holder[0])
