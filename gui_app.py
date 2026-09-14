@@ -20,7 +20,7 @@ from input_devices import DeviceManager
 from emulator_engine import EmulatorEngine, apply_axis_calibration, apply_trigger_calibration
 from i18n import get_text, get_target_name
 
-APP_VERSION = "1.0.7"
+APP_VERSION = "1.0.8"
 
 if getattr(sys, "frozen", False):
     EXE_DIR = os.path.dirname(sys.executable)
@@ -2105,7 +2105,24 @@ class J360MoreApp:
             cv_zoom.create_line(120, 120 - 45, 120, 120 - 32, fill="#ff2200", width=2)
             cv_zoom.create_line(120, 120 + 32, 120, 120 + 45, fill="#ff2200", width=2)
 
+        advance_timer = [None]
+
+        def cancel_advance_timer():
+            if advance_timer[0] is not None:
+                try:
+                    dlg.after_cancel(advance_timer[0])
+                except Exception:
+                    pass
+                advance_timer[0] = None
+
+        def update_button_states():
+            if current_step_idx > 0:
+                btn_back.config(state=tk.NORMAL)
+            else:
+                btn_back.config(state=tk.DISABLED)
+
         def advance():
+            cancel_advance_timer()
             nonlocal current_step_idx
             cur_tgt = worker_state["current_target"]
 
@@ -2123,6 +2140,7 @@ class J360MoreApp:
             current_step_idx += 1
             if current_step_idx < len(steps_queue):
                 update_ui_for_target(steps_queue[current_step_idx])
+                update_button_states()
             else:
                 on_finish()
 
@@ -2139,17 +2157,58 @@ class J360MoreApp:
             cv_main.itemconfig(main_core, fill="#00ff66")
             cv_zoom.create_oval(120 - 35, 120 - 35, 120 + 35, 120 + 35, outline="#00cc44", width=5)
 
-            dlg.after(350, advance)
+            cancel_advance_timer()
+            advance_timer[0] = dlg.after(350, advance)
+
+        def on_back():
+            if not worker_state["active"]:
+                return
+            cancel_advance_timer()
+            worker_state["listening"] = False
+
+            nonlocal current_step_idx
+            if current_step_idx > 0:
+                # Si el paso actual tenía mapeo recién capturado o saltado, se limpia
+                cur_tgt = worker_state["current_target"]
+                staged_mappings.pop(cur_tgt, None)
+                skipped_targets.discard(cur_tgt)
+
+                current_step_idx -= 1
+                prev_tgt = steps_queue[current_step_idx]
+
+                # Si retrocedemos a un paso de stick analógico tras haber insertado discretos
+                if prev_tgt == "LEFT_STICK_Y":
+                    # Si estaban los discretos insertados a continuación, retirarlos para reevaluar
+                    for t in LEFT_STICK_DISCRETE:
+                        if t in steps_queue:
+                            steps_queue.remove(t)
+                            staged_mappings.pop(t, None)
+                            skipped_targets.discard(t)
+                elif prev_tgt == "RIGHT_STICK_Y":
+                    for t in RIGHT_STICK_DISCRETE:
+                        if t in steps_queue:
+                            steps_queue.remove(t)
+                            staged_mappings.pop(t, None)
+                            skipped_targets.discard(t)
+
+                # También permitimos sobreescribir el paso anterior
+                staged_mappings.pop(prev_tgt, None)
+                skipped_targets.discard(prev_tgt)
+
+                update_ui_for_target(prev_tgt)
+                update_button_states()
 
         def on_skip():
             if not worker_state["active"]:
                 return
+            cancel_advance_timer()
             worker_state["listening"] = False
             tgt = worker_state["current_target"]
             skipped_targets.add(tgt)
             advance()
 
         def on_finish():
+            cancel_advance_timer()
             worker_state["active"] = False
             worker_state["listening"] = False
             self.device_manager.cancel_capture()
@@ -2172,6 +2231,7 @@ class J360MoreApp:
             messagebox.showinfo(self.t("wizard_completed_title"), self.t("wizard_completed_msg", id=pad_id))
 
         def on_cancel():
+            cancel_advance_timer()
             worker_state["active"] = False
             worker_state["listening"] = False
             self.device_manager.cancel_capture()
@@ -2183,8 +2243,11 @@ class J360MoreApp:
         btn_cancel = ttk.Button(btn_bar, text=self.t("wizard_btn_cancel"), command=on_cancel)
         btn_cancel.pack(side=tk.LEFT, padx=4)
 
+        btn_back = ttk.Button(btn_bar, text=self.t("wizard_btn_back"), command=on_back, state=tk.DISABLED)
+        btn_back.pack(side=tk.LEFT, padx=(12, 4))
+
         btn_skip = ttk.Button(btn_bar, text=self.t("wizard_btn_skip"), command=on_skip)
-        btn_skip.pack(side=tk.LEFT, padx=12)
+        btn_skip.pack(side=tk.LEFT, padx=4)
 
         btn_finish = ttk.Button(btn_bar, text=self.t("wizard_btn_finish"), command=on_finish)
         btn_finish.pack(side=tk.RIGHT, padx=4)
