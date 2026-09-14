@@ -30,7 +30,7 @@ def apply_axis_calibration(val: float, deadzone_pct: float, anti_deadzone_pct: f
 
     d = max(0.0, min(0.99, deadzone_pct / 100.0))
     a = max(0.0, min(0.99, anti_deadzone_pct / 100.0))
-    s = max(-1.0, min(1.0, sensitivity_pct / 100.0))
+    s = max(-10.0, min(10.0, sensitivity_pct / 100.0))
 
     abs_v = abs(val)
     if abs_v <= d:
@@ -59,7 +59,7 @@ def apply_trigger_calibration(val: float, deadzone_pct: float, anti_deadzone_pct
 
     d = max(0.0, min(0.99, deadzone_pct / 100.0))
     a = max(0.0, min(0.99, anti_deadzone_pct / 100.0))
-    s = max(-1.0, min(1.0, sensitivity_pct / 100.0))
+    s = max(-10.0, min(10.0, sensitivity_pct / 100.0))
 
     if val <= d:
         return 0.0

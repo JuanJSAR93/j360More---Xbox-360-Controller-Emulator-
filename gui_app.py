@@ -745,7 +745,7 @@ class J360MoreApp:
             self.hint_lbl.config(text=self.t("hint_mapping_wait", name=lbl_text))
             self._start_record(pad_id, target)
 
-    def _build_calib_row(self, parent, label_text: str, from_: float, to: float, init_val: float, var_holder: dict, var_key: str, widgets: dict = None):
+    def _build_calib_row(self, parent, label_text: str, from_: float, to: float, init_val: float, var_holder: dict, var_key: str, widgets: dict = None, entry_from: float = None, entry_to: float = None):
         row = ttk.Frame(parent)
         row.pack(fill=tk.X, pady=1)
 
@@ -760,7 +760,7 @@ class J360MoreApp:
 
         # Entry para permitir tipeo directo de float con % al lado
         entry_var = tk.StringVar(value=f"{init_val:g}")
-        entry = ttk.Entry(row, textvariable=entry_var, width=6, font=("Segoe UI", 8))
+        entry = ttk.Entry(row, textvariable=entry_var, width=7, font=("Segoe UI", 8))
         entry.pack(side=tk.LEFT)
         ttk.Label(row, text="%", font=("Segoe UI", 8)).pack(side=tk.LEFT, padx=(1, 2))
 
@@ -779,7 +779,7 @@ class J360MoreApp:
                 return
             is_updating[0] = True
             try:
-                # El slider opera en unidades enteras
+                # El slider opera en unidades enteras dentro de [from_, to]
                 int_val = round(float(v))
                 float_var.set(float(int_val))
                 entry_var.set(str(int_val))
@@ -788,7 +788,12 @@ class J360MoreApp:
                 is_updating[0] = False
 
         scale.configure(command=on_scale_move)
-        scale.set(round(init_val))
+        is_updating[0] = True
+        scale.set(round(max(from_, min(to, init_val))))
+        is_updating[0] = False
+
+        e_from = from_ if entry_from is None else entry_from
+        e_to = to if entry_to is None else entry_to
 
         def on_entry_commit(event=None):
             if is_updating[0]:
@@ -797,9 +802,10 @@ class J360MoreApp:
             try:
                 txt = entry_var.get().strip().replace("%", "")
                 val = float(txt)
-                val = max(from_, min(to, val))
+                val = max(e_from, min(e_to, val))
                 float_var.set(val)
-                scale.set(round(val))
+                slider_val = max(from_, min(to, val))
+                scale.set(round(slider_val))
                 entry_var.set(f"{val:g}")
                 self._sync_ui_to_config()
             except ValueError:
@@ -839,7 +845,7 @@ class J360MoreApp:
             calib_vars = {}
             adz_var = self._build_calib_row(right_box, self.t("lbl_anti_deadzone"), 0, 100, float(data.get("anti_deadzone", 0)), calib_vars, "adz_var", widgets)
             dz_var = self._build_calib_row(right_box, self.t("lbl_deadzone"), 0, 100, float(data.get("deadzone", 0)), calib_vars, "dz_var", widgets)
-            sens_var = self._build_calib_row(right_box, self.t("lbl_sensitivity"), -100, 100, float(data.get("sensitivity", 0)), calib_vars, "sens_var", widgets)
+            sens_var = self._build_calib_row(right_box, self.t("lbl_sensitivity"), -100, 100, float(data.get("sensitivity", 0)), calib_vars, "sens_var", widgets, entry_from=-1000, entry_to=1000)
 
             inv_var = tk.BooleanVar(value=data.get("invert", False))
             chk_inv = ttk.Checkbutton(right_box, text=self.t("chk_invert_axis"), variable=inv_var, command=self._sync_ui_to_config)
@@ -900,7 +906,7 @@ class J360MoreApp:
             calib_vars = {}
             adz_var = self._build_calib_row(right_box, self.t("lbl_anti_deadzone"), 0, 100, float(data.get("anti_deadzone", 0)), calib_vars, "adz_var", widgets)
             dz_var = self._build_calib_row(right_box, self.t("lbl_deadzone"), 0, 100, float(data.get("deadzone", 8)), calib_vars, "dz_var", widgets)
-            sens_var = self._build_calib_row(right_box, self.t("lbl_sensitivity"), -100, 100, float(data.get("sensitivity", 0)), calib_vars, "sens_var", widgets)
+            sens_var = self._build_calib_row(right_box, self.t("lbl_sensitivity"), -100, 100, float(data.get("sensitivity", 0)), calib_vars, "sens_var", widgets, entry_from=-1000, entry_to=1000)
 
             check_row = ttk.Frame(right_box)
             check_row.pack(fill=tk.X, pady=2)
