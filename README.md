@@ -1,10 +1,10 @@
 # j360More - Multi-Gamepad Emulator (1 to 12 Xbox 360 Controllers)
 
-[📖 Leer en Español](README_es.md) | [Official Releases](https://github.com/JuanJSAR93/j360More---Xbox-360-Controller-Emulator-/releases) | [Web Documentation](https://juanjsar93.github.io/j360More---Xbox-360-Controller-Emulator-/)
+[📖 Leer en Español](README_es.md) | [Official Releases](https://github.com/JuanJSAR93/j360More-Xbox_360_Controller_Emulator/releases) | [Web Documentation](https://juanjsar93.github.io/j360More-Xbox_360_Controller_Emulator/)
 
 > **Developed by JuanJSAR**  
-> Official Repository: [GitHub - JuanJSAR93/j360More](https://github.com/JuanJSAR93/j360More---Xbox-360-Controller-Emulator-)  
-> Downloads & Releases: [Official Releases](https://github.com/JuanJSAR93/j360More---Xbox-360-Controller-Emulator-/releases)  
+> Official Repository: [GitHub - JuanJSAR93/j360More](https://github.com/JuanJSAR93/j360More-Xbox_360_Controller_Emulator)  
+> Downloads & Releases: [Official Releases](https://github.com/JuanJSAR93/j360More-Xbox_360_Controller_Emulator/releases)  
 > Web Documentation (GitHub Pages): `/docs` folder
 
 **j360More** is an advanced multi-controller virtual gamepad solution for Windows developed by **JuanJSAR**. Built on top of the **ViGEmBus** kernel driver, it features a modern bilingual interface (**English and Spanish**), an intuitive layout inspired by x360ce, support for up to **12 simultaneous virtual Xbox 360 controllers**, and optional integration with **Nefarius HidHide** to eliminate the double-input issue in PC games and emulators.
@@ -89,8 +89,8 @@ Map real physical hardware (DirectInput/XInput gamepads via USB or Bluetooth, ge
 
 ### 1. Clone the repository
 ```powershell
-git clone https://github.com/JuanJSAR93/j360More---Xbox-360-Controller-Emulator-.git
-cd j360More---Xbox-360-Controller-Emulator-
+git clone https://github.com/JuanJSAR93/j360More-Xbox_360_Controller_Emulator.git
+cd j360More-Xbox_360_Controller_Emulator
 ```
 
 ### 2. Create and Activate a Virtual Environment

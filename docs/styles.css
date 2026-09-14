@@ -940,70 +940,7 @@ body::before {
   gap: 1rem;
 }
 
-/* ==========================================================================
-   Responsive Media Queries
-   ========================================================================== */
-@media (max-width: 960px) {
-  .hero {
-    grid-template-columns: 1fr;
-    text-align: center;
-    padding-top: 3rem;
-  }
-  
-  .hero-content {
-    align-items: center;
-  }
-  
-  .hero-actions {
-    justify-content: center;
-  }
-  
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .drivers-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .footer-container {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 680px) {
-  .hero-title {
-    font-size: 2.25rem;
-  }
-  
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .nav-links {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    width: 100%;
-    background: var(--bg-secondary);
-    flex-direction: column;
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-  }
-  
-  .nav-links.show {
-    display: flex;
-  }
-  
-  .menu-toggle {
-    display: block;
-  }
-  
-  .requirements-table td:first-child {
-    width: 35%;
-  }
-}
+/* Media queries moved to the end of stylesheet for proper cascade override */
 
 /* ==========================================================================
    Screenshots Showcase & Lightbox Modal
@@ -1208,20 +1145,481 @@ body::before {
 
 .lightbox-close {
   position: absolute;
-  top: -42px;
-  right: 0;
-  background: transparent;
-  border: none;
+  top: 14px;
+  right: 14px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(13, 17, 23, 0.85);
+  border: 1px solid var(--border-color);
   color: var(--text-primary);
-  font-size: 2rem;
+  font-size: 1.5rem;
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  padding: 4px 8px;
-  transition: color 0.2s ease, transform 0.2s ease;
+  transition: all 0.2s ease;
+  z-index: 2010;
 }
 
 .lightbox-close:hover {
   color: var(--xbox-neon);
-  transform: scale(1.15);
+  border-color: var(--xbox-neon);
+  transform: scale(1.08);
+}
+
+/* ==========================================================================
+   Comprehensive Responsive System (Mobile, Tablet & Small Screens)
+   ========================================================================== */
+
+/* 1. Prevent any accidental horizontal overflow */
+html, body {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* 2. Navigation Breakpoint (Tablets & Mobile < 980px) */
+@media (max-width: 980px) {
+  .menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 1.4rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+  }
+
+  .menu-toggle:hover {
+    border-color: var(--xbox-neon);
+    color: var(--xbox-neon);
+  }
+
+  .nav-links {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-height: calc(100vh - 75px);
+    overflow-y: auto;
+    background: rgba(13, 17, 23, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    flex-direction: column;
+    padding: 1.5rem 1.25rem 2rem;
+    gap: 0.6rem;
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+  }
+
+  .nav-links.show {
+    display: flex;
+    animation: navSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .nav-links li {
+    width: 100%;
+  }
+
+  .nav-links li a {
+    display: block;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.03);
+    text-align: center;
+    font-size: 1rem;
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+  }
+
+  .nav-links li a:hover {
+    background: rgba(16, 207, 101, 0.15);
+    color: var(--xbox-neon);
+  }
+
+  .nav-links .lang-switch-wrapper {
+    margin: 0.4rem auto;
+    width: fit-content;
+    justify-content: center;
+    padding: 0.35rem 1rem;
+  }
+
+  .nav-links .btn-nav {
+    justify-content: center;
+    padding: 0.85rem 1rem;
+    background: var(--bg-card);
+  }
+}
+
+@keyframes navSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 3. Medium Screens (< 960px) */
+@media (max-width: 960px) {
+  .hero {
+    grid-template-columns: 1fr;
+    text-align: center;
+    padding: 3.5rem 1.25rem 3rem;
+    gap: 2.5rem;
+  }
+
+  .hero-content {
+    align-items: center;
+  }
+
+  .badge-wrapper {
+    justify-content: center;
+  }
+
+  .hero-actions {
+    justify-content: center;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  .drivers-grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .footer-container {
+    grid-template-columns: 1fr;
+    gap: 2.25rem;
+  }
+}
+
+/* 4. Mobile Screens (< 768px) */
+@media (max-width: 768px) {
+  .hero {
+    padding: 2.25rem 1rem 2rem;
+    gap: 2rem;
+  }
+
+  .hero-title {
+    font-size: clamp(1.9rem, 7.5vw, 2.5rem);
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+  }
+
+  .hero-subtitle {
+    font-size: 0.95rem;
+    padding: 0 0.25rem;
+    line-height: 1.6;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.75rem;
+  }
+
+  .hero-actions .btn {
+    width: 100%;
+    padding: 0.85rem 1.25rem;
+    font-size: 0.95rem;
+  }
+
+  .badge-wrapper {
+    gap: 0.4rem;
+  }
+
+  .badge {
+    font-size: 0.72rem;
+    padding: 0.25rem 0.6rem;
+  }
+
+  .controller-preview-card {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  /* General sections */
+  .section {
+    padding: 3.5rem 1rem;
+  }
+
+  .section-header {
+    margin-bottom: 2rem;
+  }
+
+  .section-title {
+    font-size: 1.7rem;
+    line-height: 1.25;
+  }
+
+  .section-desc {
+    font-size: 0.95rem;
+  }
+
+  /* Features */
+  .features-grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .feature-card {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .feature-card h3 {
+    font-size: 1.15rem;
+  }
+
+  /* Screenshots Gallery */
+  .screenshots-section {
+    padding: 3.5rem 1rem;
+  }
+
+  .screenshots-grid {
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+  }
+
+  .screenshot-info {
+    padding: 1.25rem;
+  }
+
+  .screenshot-title {
+    font-size: 1.1rem;
+  }
+
+  .screenshot-desc {
+    font-size: 0.88rem;
+  }
+
+  /* Drivers */
+  .drivers-section {
+    padding: 3.5rem 1rem;
+  }
+
+  .driver-card {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .driver-title {
+    font-size: 1.5rem;
+  }
+
+  .driver-desc {
+    font-size: 0.92rem;
+  }
+
+  .btn-driver-download {
+    font-size: 0.85rem;
+    padding: 0.85rem 0.6rem;
+    text-align: center;
+  }
+
+  /* Requirements Table converted into clean mobile cards */
+  .requirements-card {
+    padding: 1.5rem 1rem;
+    margin-top: 2rem;
+  }
+
+  .requirements-card h3 {
+    font-size: 1.15rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .table-responsive {
+    width: 100%;
+  }
+
+  .requirements-table,
+  .requirements-table tbody,
+  .requirements-table tr,
+  .requirements-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .requirements-table thead {
+    display: none;
+  }
+
+  .requirements-table tr {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    margin-bottom: 1rem;
+    padding: 1rem 1.15rem;
+  }
+
+  .requirements-table tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .requirements-table td {
+    border: none;
+    padding: 0.35rem 0;
+    font-size: 0.88rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    text-align: right;
+  }
+
+  .requirements-table td.req-comp {
+    color: var(--xbox-neon);
+    font-size: 1.05rem;
+    font-weight: 700;
+    text-align: left;
+    display: block;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .requirements-table td:not(.req-comp)::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    min-width: 95px;
+    text-align: left;
+    padding-top: 1px;
+  }
+
+  /* Steps / Quickstart */
+  .steps-container {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .step-card {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .code-box {
+    max-width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 0.82rem;
+  }
+
+  /* FAQ */
+  .faq-question {
+    padding: 1rem 1.25rem;
+    font-size: 0.98rem;
+  }
+
+  .faq-answer {
+    padding: 0 1.25rem 1rem;
+    font-size: 0.88rem;
+  }
+
+  /* CTA Banner */
+  .cta-banner {
+    margin: 2.5rem 1rem;
+    padding: 2.5rem 1.25rem;
+  }
+
+  .cta-banner h2 {
+    font-size: 1.55rem;
+    line-height: 1.3;
+  }
+
+  .cta-banner p {
+    font-size: 0.92rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .cta-banner .btn {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    font-size: 0.95rem;
+  }
+
+  /* Footer */
+  .footer {
+    padding: 2.5rem 1rem 1.5rem;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+
+  /* Lightbox on mobile */
+  .lightbox-modal {
+    padding: 1rem 0.5rem;
+  }
+
+  .lightbox-content img {
+    max-height: 72vh;
+  }
+
+  .lightbox-caption {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+  }
+
+  .lightbox-close {
+    top: 10px;
+    right: 10px;
+    width: 38px;
+    height: 38px;
+    font-size: 1.3rem;
+  }
+}
+
+/* 5. Extra Small Devices (< 480px) */
+@media (max-width: 480px) {
+  .logo span {
+    font-size: 1.1rem;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .stat-item h3 {
+    font-size: 1.6rem;
+  }
+
+  .stat-item p {
+    font-size: 0.78rem;
+  }
+
+  .driver-header {
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .requirements-table td {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    gap: 0.2rem;
+  }
+
+  .requirements-table td:not(.req-comp)::before {
+    margin-bottom: 0.15rem;
+  }
 }
 
